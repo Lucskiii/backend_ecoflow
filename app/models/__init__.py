@@ -1,5 +1,39 @@
-from app.models.asset import Asset
-from app.models.customer import Customer
-from app.models.site import Site
+from app.models.tables import (
+    Asset,
+    BiDimAsset,
+    BiDimCustomer,
+    BiDimMarketProduct,
+    BiDimQuality,
+    BiDimSite,
+    BiDimTime,
+    BiFactDispatch,
+    BiFactEnergyInterval,
+    BiFactForecastAccuracy,
+    BiFactMarketPrice,
+    BiFactSettlement,
+    CoreAssetCapability,
+    CoreBiddingZone,
+    CoreContract,
+    CoreDispatchExecution,
+    CoreDispatchPlan,
+    CoreDispatchStep,
+    CoreGridEvent,
+    CoreGridZone,
+    CoreMarket,
+    CoreMarketProduct,
+    CoreMeter,
+    CoreQualityFlag,
+    CoreSettlementStatement,
+    CoreTsAssetTelemetry,
+    CoreTsForecast,
+    CoreTsMarketPrice,
+    CoreTsMeterReading,
+    CoreTsWeatherObservation,
+    CoreWeatherLocation,
+    Customer,
+    RawIngestionBatch,
+    RawRawPayload,
+    Site,
+)
 
-__all__ = ["Customer", "Site", "Asset"]
+__all__ = [name for name in globals() if not name.startswith("_")]
