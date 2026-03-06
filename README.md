@@ -28,6 +28,7 @@ tests/
 ```
 
 ## Quick start
+## Mit bash ist unter Windows PowerShell gemeint
 
 1. Install dependencies:
    ```bash
@@ -39,11 +40,11 @@ tests/
    ```
 3. Run migrations:
    ```bash
-   alembic upgrade head
+   python -m alembic upgrade head
    ```
 4. Start API:
    ```bash
-   uvicorn app.main:app --reload
+   python -m uvicorn app.main:app --reload
    ```
 
 ## Endpoints
