@@ -1,6 +1,6 @@
 # EcoFlow Backend Foundation
 
-Clean backend starter for an energy analytics / virtual power plant platform.
+Clean backend starter for an energy analytics / virtual power plant platform with a full MySQL 8 schema managed by Alembic migrations.
 
 ## Stack
 
@@ -55,3 +55,11 @@ tests/
 - `POST /api/customers`
 - `PUT /api/customers/{customer_id}`
 - `DELETE /api/customers/{customer_id}`
+
+
+## Database foundation
+
+- The database is managed via Alembic migrations only (no `Base.metadata.create_all()` in app startup).
+- Logical layers are represented as MySQL table prefixes: `raw_`, `core_`, and `bi_`.
+- Run `python -m alembic upgrade head` to create all tables, constraints, and indexes in MySQL 8.
+- Configure your connection in `.env` using `DATABASE_URL` (example provided in `.env.example`).

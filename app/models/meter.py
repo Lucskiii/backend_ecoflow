@@ -1,1 +1,3 @@
-"""Placeholder model module for future meter entities."""
+from app.models.tables import CoreMeter
+
+__all__ = ["CoreMeter"]
