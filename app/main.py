@@ -1,7 +1,11 @@
 from fastapi import FastAPI
 
-app = FastAPI()
+from app.api.health import router as health_router
+from app.api.router import router as api_router
+from app.config import get_settings
 
-@app.get("/")
-def root():
-	return {"message:": "Backend läuft"}
+settings = get_settings()
+app = FastAPI(title=settings.app_name, version=settings.app_version)
+
+app.include_router(health_router)
+app.include_router(api_router)
