@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.database import Base, get_db
 from app.main import app
+from app.models.tables import CoreMeter, CoreSite, CoreTsMeterReading
 
 
 def _setup_test_db() -> sessionmaker[Session]:
@@ -79,6 +80,58 @@ def test_energy_simulation_and_customer_scoped_queries() -> None:
 
     app.dependency_overrides.clear()
 
+
+def test_timeseries_handles_non_modeled_meter_roles() -> None:
+    testing_session_local = _setup_test_db()
+
+    def override_get_db():
+        db = testing_session_local()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+    client = TestClient(app)
+
+    token = _register_and_login(client, "Customer Extra Role", "extra-role@example.com")
+    simulate = client.post("/api/customers/me/energy/simulate", headers={"Authorization": f"Bearer {token}"})
+    assert simulate.status_code == 200
+
+    db = testing_session_local()
+    try:
+        site = db.query(CoreSite).first()
+        assert site is not None
+
+        meter = CoreMeter(site_id=site.id, meter_code="meter-battery-charge", meter_role="battery_charge", unit="kWh")
+        db.add(meter)
+        db.flush()
+
+        db.add(
+            CoreTsMeterReading(
+                meter_id=meter.id,
+                ts=datetime.now(timezone.utc) - timedelta(minutes=15),
+                interval_seconds=900,
+                value=1.25,
+            )
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    now = datetime.now(timezone.utc)
+    since = (now - timedelta(hours=6)).isoformat()
+    until = now.isoformat()
+    timeseries = client.get(
+        f"/api/customers/me/energy/timeseries?from={since}&to={until}&interval=15m",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert timeseries.status_code == 200
+    series = timeseries.json()["series"]
+    assert any(item["meter_type"] == "battery_charge" for item in series)
+
+    app.dependency_overrides.clear()
 
 def test_timeseries_rejects_naive_datetime_inputs() -> None:
     testing_session_local = _setup_test_db()

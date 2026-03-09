@@ -262,6 +262,8 @@ class EnergyService:
 
         series = {meter_type: {"meter_type": meter_type, "unit": "kwh", "points": []} for meter_type in METER_TYPES}
         for meter_role, unit, ts, value in rows:
+            if meter_role not in series:
+                series[meter_role] = {"meter_type": meter_role, "unit": "kwh", "points": []}
             series[meter_role]["unit"] = unit.lower()
             series[meter_role]["points"].append({"ts": ts, "value": value})
 
