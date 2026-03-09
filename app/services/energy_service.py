@@ -60,7 +60,7 @@ class EnergyService:
 
     def _get_or_create_meters(self, site: Site) -> dict[str, CoreMeter]:
         meters = list(self.db.scalars(select(CoreMeter).where(CoreMeter.site_id == site.id)))
-        by_role = {meter.meter_role: meter for meter in meters}
+        by_role = {meter.meter_role: meter for meter in meters if meter.meter_role in METER_TYPES}
 
         for meter_type in METER_TYPES:
             if meter_type in by_role:
