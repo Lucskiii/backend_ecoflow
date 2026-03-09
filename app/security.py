@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import jwt
 from pwdlib import PasswordHash
@@ -20,7 +20,7 @@ def verify_password(password: str, password_hash: str) -> bool:
 
 def create_access_token(subject: str) -> str:
     settings = get_settings()
-    expire_at = datetime.now(UTC) + timedelta(minutes=settings.jwt_expire_minutes)
+    expire_at = datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_expire_minutes)
     payload = {"sub": subject, "exp": expire_at}
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
