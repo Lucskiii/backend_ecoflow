@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.security import OAuth2PasswordBearer
 from jwt import InvalidTokenError
 from sqlalchemy.orm import Session
 
@@ -17,19 +17,17 @@ from app.schemas.customer import (
 from app.security import create_access_token, decode_access_token, hash_password, verify_password
 
 router = APIRouter(prefix="/api", tags=["customers"])
-security = HTTPBearer(auto_error=False)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 
 def _get_current_customer(
-    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+    token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ):
     unauthorized = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired access token")
-    if credentials is None:
-        raise unauthorized
 
     try:
-        payload = decode_access_token(credentials.credentials)
+        payload = decode_access_token(token)
         subject = payload.get("sub")
         if subject is None:
             raise unauthorized
