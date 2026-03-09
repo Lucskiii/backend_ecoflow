@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.database import Base, get_db
 from app.main import app
-from app.models.tables import CoreMeter, CoreSite, CoreTsMeterReading
+from app.models.tables import CoreMeter, CoreTsMeterReading, Site
 
 
 def _setup_test_db() -> sessionmaker[Session]:
@@ -100,7 +100,7 @@ def test_timeseries_handles_non_modeled_meter_roles() -> None:
 
     db = testing_session_local()
     try:
-        site = db.query(CoreSite).first()
+        site = db.query(Site).first()
         assert site is not None
 
         meter = CoreMeter(site_id=site.id, meter_code="meter-battery-charge", meter_role="battery_charge", unit="kWh")
