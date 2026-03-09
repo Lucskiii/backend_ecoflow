@@ -17,14 +17,17 @@ from app.schemas.customer import (
 from app.security import create_access_token, decode_access_token, hash_password, verify_password
 
 router = APIRouter(prefix="/api", tags=["customers"])
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
 
 def _get_current_customer(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
     db: Session = Depends(get_db),
 ):
-    unauthorized = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authentication credentials")
+    unauthorized = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired access token")
+    if credentials is None:
+        raise unauthorized
+
     try:
         payload = decode_access_token(credentials.credentials)
         subject = payload.get("sub")
@@ -37,7 +40,7 @@ def _get_current_customer(
     repository = CustomerRepository(db)
     customer = repository.get(customer_id)
     if customer is None:
-        raise unauthorized
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Authenticated customer not found")
     return customer
 
 
