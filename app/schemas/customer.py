@@ -26,6 +26,11 @@ class CustomerUpdate(BaseModel):
     email: EmailStr | None = None
 
 
+class CustomerSelfUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1)
+    email: EmailStr | None = None
+
+
 class CustomerRead(CustomerBase):
     id: int
     created_at: datetime

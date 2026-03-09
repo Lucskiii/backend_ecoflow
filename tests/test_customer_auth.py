@@ -50,6 +50,40 @@ def test_register_login_and_me() -> None:
     assert customer_me_json["name"] == "Max Mustermann"
     assert customer_me_json["email"] == "max@example.com"
 
+
+    update_me_response = client.put(
+        "/api/customers/me",
+        json={"name": "Max Mustermann Neu", "email": "max.neu@example.com"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert update_me_response.status_code == 200
+    update_me_json = update_me_response.json()
+    assert update_me_json["id"] == register_json["customer"]["id"]
+    assert update_me_json["name"] == "Max Mustermann Neu"
+    assert update_me_json["email"] == "max.neu@example.com"
+
+    second_customer_response = client.post(
+        "/api/auth/register",
+        json={"name": "Erika Musterfrau", "email": "erika@example.com", "password": "secret123"},
+    )
+    assert second_customer_response.status_code == 201
+
+    email_conflict_response = client.put(
+        "/api/customers/me",
+        json={"email": "erika@example.com"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert email_conflict_response.status_code == 409
+
+    invalid_payload_response = client.put(
+        "/api/customers/me",
+        json={"name": ""},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert invalid_payload_response.status_code == 422
+
+    unauthorized_update_response = client.put("/api/customers/me", json={"name": "Unauthed"})
+    assert unauthorized_update_response.status_code == 401
     unauthorized_me_response = client.get("/api/customers/me")
     assert unauthorized_me_response.status_code == 401
 

@@ -11,6 +11,7 @@ from app.schemas.customer import (
     CustomerLogin,
     CustomerRead,
     CustomerRegister,
+    CustomerSelfUpdate,
     CustomerUpdate,
     TokenResponse,
 )
@@ -51,6 +52,22 @@ def list_customers(db: Session = Depends(get_db)) -> list[CustomerRead]:
 @router.get("/customers/me", response_model=CustomerRead)
 def get_current_customer(customer=Depends(_get_current_customer)) -> CustomerRead:
     return customer
+
+
+@router.put("/customers/me", response_model=CustomerRead)
+def update_current_customer(
+    payload: CustomerSelfUpdate,
+    customer=Depends(_get_current_customer),
+    db: Session = Depends(get_db),
+) -> CustomerRead:
+    repository = CustomerRepository(db)
+
+    if payload.email is not None and payload.email != customer.email:
+        existing = repository.get_by_email(str(payload.email))
+        if existing is not None and existing.id != customer.id:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+
+    return repository.update(customer, payload)
 
 
 @router.get("/customers/{customer_id}", response_model=CustomerRead)
