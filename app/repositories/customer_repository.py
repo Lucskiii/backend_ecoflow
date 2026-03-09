@@ -2,7 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.customer import Customer
-from app.schemas.customer import CustomerCreate, CustomerUpdate
+from app.schemas.customer import CustomerCreate, CustomerSelfUpdate, CustomerUpdate
 
 
 class CustomerRepository:
@@ -25,7 +25,7 @@ class CustomerRepository:
         self.db.refresh(customer)
         return customer
 
-    def update(self, customer: Customer, payload: CustomerUpdate) -> Customer:
+    def update(self, customer: Customer, payload: CustomerUpdate | CustomerSelfUpdate) -> Customer:
         update_data = payload.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             setattr(customer, field, value)
