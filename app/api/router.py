@@ -50,6 +50,11 @@ def list_customers(db: Session = Depends(get_db)) -> list[CustomerRead]:
     return repository.list()
 
 
+@router.get("/customers/me", response_model=CustomerRead)
+def get_current_customer(customer=Depends(_get_current_customer)) -> CustomerRead:
+    return customer
+
+
 @router.get("/customers/{customer_id}", response_model=CustomerRead)
 def get_customer(customer_id: int, db: Session = Depends(get_db)) -> CustomerRead:
     repository = CustomerRepository(db)

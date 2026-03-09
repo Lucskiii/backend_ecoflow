@@ -43,4 +43,14 @@ def test_register_login_and_me() -> None:
     assert me_response.status_code == 200
     assert me_response.json()["email"] == "max@example.com"
 
+    customer_me_response = client.get("/api/customers/me", headers={"Authorization": f"Bearer {token}"})
+    assert customer_me_response.status_code == 200
+    customer_me_json = customer_me_response.json()
+    assert customer_me_json["id"] == register_json["customer"]["id"]
+    assert customer_me_json["name"] == "Max Mustermann"
+    assert customer_me_json["email"] == "max@example.com"
+
+    unauthorized_me_response = client.get("/api/customers/me")
+    assert unauthorized_me_response.status_code == 401
+
     app.dependency_overrides.clear()
