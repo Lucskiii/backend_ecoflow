@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import math
 import random
 from dataclasses import dataclass
@@ -14,6 +15,9 @@ from app.models.tables import CoreMeter, CoreQualityFlag, CoreTsMeterReading, Cu
 METER_TYPES = ("load", "grid_import", "grid_export", "pv_generation")
 INTERVAL_MINUTES = 15
 INTERVAL_SECONDS = INTERVAL_MINUTES * 60
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -154,6 +158,38 @@ class EnergyService:
             from_ts=start_ts,
             to_ts=end_ts,
         )
+
+    def customer_has_energy_data(self, customer_id: int) -> bool:
+        has_data_query = (
+            select(CoreTsMeterReading.meter_id)
+            .join(CoreMeter, CoreMeter.id == CoreTsMeterReading.meter_id)
+            .join(Site, Site.id == CoreMeter.site_id)
+            .where(Site.customer_id == customer_id)
+            .limit(1)
+        )
+        return self.db.scalar(has_data_query) is not None
+
+    def ensure_demo_energy_data_for_all_customers(self, days: int = 30) -> None:
+        customers = list(self.db.scalars(select(Customer).order_by(Customer.id)))
+        logger.info("Auto energy simulation: found %s customer(s)", len(customers))
+
+        for customer in customers:
+            if self.customer_has_energy_data(customer.id):
+                logger.info(
+                    "Auto energy simulation: skipped customer id=%s email=%s (existing data)",
+                    customer.id,
+                    customer.email,
+                )
+                continue
+
+            result = self.simulate_customer_data(customer, days=days)
+            logger.info(
+                "Auto energy simulation: simulated customer id=%s email=%s readings=%s days=%s",
+                customer.id,
+                customer.email,
+                result.readings_created,
+                days,
+            )
 
     def _base_query(self, customer_id: int, from_ts: datetime, to_ts: datetime, site_id: int | None = None):
         query = (

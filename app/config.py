@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     jwt_secret: str = Field(default="change-me-in-production", alias="JWT_SECRET")
     jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")
     jwt_expire_minutes: int = Field(default=60, alias="JWT_EXPIRE_MINUTES")
+    auto_simulate_energy: bool = Field(default=True, alias="AUTO_SIMULATE_ENERGY")
+    auto_simulate_days: int = Field(default=30, alias="AUTO_SIMULATE_DAYS")
 
     model_config = SettingsConfigDict(
         env_file=".env",
