@@ -1,0 +1,80 @@
+from datetime import datetime, timedelta, timezone
+
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
+
+from app.database import Base, get_db
+from app.main import app
+
+
+def _setup_test_db() -> sessionmaker[Session]:
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    testing_session_local = sessionmaker(bind=engine, autocommit=False, autoflush=False, class_=Session)
+    Base.metadata.create_all(bind=engine)
+    return testing_session_local
+
+
+def _register_and_login(client: TestClient, name: str, email: str) -> str:
+    register_response = client.post(
+        "/api/auth/register",
+        json={"name": name, "email": email, "password": "secret123"},
+    )
+    assert register_response.status_code == 201
+
+    login_response = client.post("/api/auth/login", json={"email": email, "password": "secret123"})
+    assert login_response.status_code == 200
+    return login_response.json()["access_token"]
+
+
+def test_energy_simulation_and_customer_scoped_queries() -> None:
+    testing_session_local = _setup_test_db()
+
+    def override_get_db():
+        db = testing_session_local()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+    client = TestClient(app)
+
+    token_a = _register_and_login(client, "Customer A", "a@example.com")
+    token_b = _register_and_login(client, "Customer B", "b@example.com")
+
+    simulate_a = client.post("/api/customers/me/energy/simulate", headers={"Authorization": f"Bearer {token_a}"})
+    assert simulate_a.status_code == 200
+    assert simulate_a.json()["readings_created"] > 0
+
+    summary_a = client.get("/api/customers/me/energy/summary?period=7d", headers={"Authorization": f"Bearer {token_a}"})
+    assert summary_a.status_code == 200
+    payload_a = summary_a.json()
+    assert payload_a["load_kwh"] > 0
+    assert payload_a["grid_import_kwh"] >= 0
+
+    summary_b = client.get("/api/customers/me/energy/summary?period=7d", headers={"Authorization": f"Bearer {token_b}"})
+    assert summary_b.status_code == 200
+    payload_b = summary_b.json()
+    assert payload_b["load_kwh"] == 0
+    assert payload_b["pv_generation_kwh"] == 0
+
+    now = datetime.now(timezone.utc)
+    since = (now - timedelta(hours=6)).isoformat()
+    until = now.isoformat()
+    timeseries = client.get(
+        f"/api/customers/me/energy/timeseries?from={since}&to={until}&interval=15m",
+        headers={"Authorization": f"Bearer {token_a}"},
+    )
+    assert timeseries.status_code == 200
+    series = timeseries.json()["series"]
+    assert len(series) == 4
+    assert any(item["meter_type"] == "load" and len(item["points"]) > 0 for item in series)
+
+    invalid_interval = client.get(
+        "/api/customers/me/energy/timeseries?interval=1h",
+        headers={"Authorization": f"Bearer {token_a}"},
+    )
+    assert invalid_interval.status_code == 400
+
+    app.dependency_overrides.clear()
