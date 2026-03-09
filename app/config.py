@@ -14,6 +14,9 @@ class Settings(BaseSettings):
         default="mysql+pymysql://user:password@localhost:3306/energy_db",
         alias="DATABASE_URL",
     )
+    jwt_secret: str = Field(default="change-me-in-production", alias="JWT_SECRET")
+    jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")
+    jwt_expire_minutes: int = Field(default=60, alias="JWT_EXPIRE_MINUTES")
 
     model_config = SettingsConfigDict(
         env_file=".env",
