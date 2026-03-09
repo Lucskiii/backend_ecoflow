@@ -15,8 +15,11 @@ class CustomerRepository:
     def get(self, customer_id: int) -> Customer | None:
         return self.db.get(Customer, customer_id)
 
-    def create(self, payload: CustomerCreate) -> Customer:
-        customer = Customer(name=payload.name, email=payload.email)
+    def get_by_email(self, email: str) -> Customer | None:
+        return self.db.scalar(select(Customer).where(Customer.email == email))
+
+    def create(self, payload: CustomerCreate, password_hash: str | None = None) -> Customer:
+        customer = Customer(name=payload.name, email=payload.email, password_hash=password_hash)
         self.db.add(customer)
         self.db.commit()
         self.db.refresh(customer)
