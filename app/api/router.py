@@ -17,9 +17,16 @@ from app.schemas.customer import (
     CustomerUpdate,
     TokenResponse,
 )
-from app.schemas.energy import EnergySimulationResponse, EnergySummaryResponse, EnergyTimeseriesResponse
+from app.schemas.energy import (
+    EnergySimulationResponse,
+    EnergySummaryResponse,
+    EnergyTimeseriesResponse,
+    PortfolioSummaryResponse,
+    PortfolioTimeseriesResponse,
+)
 from app.security import create_access_token, decode_access_token, hash_password, verify_password
 from app.services.energy_service import EnergyService
+from app.services.portfolio_service import PortfolioService
 
 router = APIRouter(prefix="/api", tags=["customers"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
@@ -186,6 +193,43 @@ def get_my_energy_timeseries(
 
     service = EnergyService(db)
     return EnergyTimeseriesResponse(**service.energy_timeseries(customer.id, from_ts=from_ts, to_ts=to_ts, site_id=site_id))
+
+
+@router.get("/portfolio/export/summary", response_model=PortfolioSummaryResponse)
+def get_portfolio_export_summary(
+    period: str = Query(default="today", pattern="^(today|7d|30d)$"),
+    db: Session = Depends(get_db),
+) -> PortfolioSummaryResponse:
+    service = PortfolioService(db)
+    return PortfolioSummaryResponse(**service.export_summary(period=period))
+
+
+@router.get("/portfolio/export/timeseries", response_model=PortfolioTimeseriesResponse)
+def get_portfolio_export_timeseries(
+    from_ts: datetime | None = Query(default=None, alias="from"),
+    to_ts: datetime | None = Query(default=None, alias="to"),
+    interval: str = "15m",
+    db: Session = Depends(get_db),
+) -> PortfolioTimeseriesResponse:
+    if interval != "15m":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only 15m interval is supported")
+
+    now = datetime.now(timezone.utc)
+    if to_ts is None:
+        to_ts = now
+    else:
+        to_ts = _ensure_aware_utc(to_ts, "to")
+
+    if from_ts is None:
+        from_ts = to_ts - timedelta(days=1)
+    else:
+        from_ts = _ensure_aware_utc(from_ts, "from")
+
+    if from_ts >= to_ts:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="from must be before to")
+
+    service = PortfolioService(db)
+    return PortfolioTimeseriesResponse(**service.export_timeseries(from_ts=from_ts, to_ts=to_ts))
 
 
 @router.post("/customers/me/energy/simulate", response_model=EnergySimulationResponse)
