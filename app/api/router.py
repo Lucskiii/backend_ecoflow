@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import datetime, timedelta, timezone
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.security import OAuth2PasswordBearer
 from jwt import InvalidTokenError
 from sqlalchemy.orm import Session
@@ -15,7 +17,9 @@ from app.schemas.customer import (
     CustomerUpdate,
     TokenResponse,
 )
+from app.schemas.energy import EnergySimulationResponse, EnergySummaryResponse, EnergyTimeseriesResponse
 from app.security import create_access_token, decode_access_token, hash_password, verify_password
+from app.services.energy_service import EnergyService
 
 router = APIRouter(prefix="/api", tags=["customers"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
@@ -132,3 +136,56 @@ def login_customer(payload: CustomerLogin, db: Session = Depends(get_db)) -> Tok
 @router.get("/auth/me", response_model=CustomerRead)
 def get_me(customer=Depends(_get_current_customer)) -> CustomerRead:
     return customer
+
+
+@router.get("/customers/me/energy/summary", response_model=EnergySummaryResponse)
+def get_my_energy_summary(
+    period: str = Query(default="today", pattern="^(today|7d|30d)$"),
+    site_id: int | None = None,
+    customer=Depends(_get_current_customer),
+    db: Session = Depends(get_db),
+) -> EnergySummaryResponse:
+    service = EnergyService(db)
+    return EnergySummaryResponse(**service.energy_summary(customer.id, period=period, site_id=site_id))
+
+
+@router.get("/customers/me/energy/timeseries", response_model=EnergyTimeseriesResponse)
+def get_my_energy_timeseries(
+    from_ts: datetime | None = Query(default=None, alias="from"),
+    to_ts: datetime | None = Query(default=None, alias="to"),
+    site_id: int | None = None,
+    interval: str = "15m",
+    customer=Depends(_get_current_customer),
+    db: Session = Depends(get_db),
+) -> EnergyTimeseriesResponse:
+    if interval != "15m":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only 15m interval is supported")
+
+    now = datetime.now(timezone.utc)
+    if to_ts is None:
+        to_ts = now
+    if from_ts is None:
+        from_ts = to_ts - timedelta(days=1)
+
+    if from_ts >= to_ts:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="from must be before to")
+
+    service = EnergyService(db)
+    return EnergyTimeseriesResponse(**service.energy_timeseries(customer.id, from_ts=from_ts, to_ts=to_ts, site_id=site_id))
+
+
+@router.post("/customers/me/energy/simulate", response_model=EnergySimulationResponse)
+def simulate_my_energy_data(
+    days: int = Query(default=30, ge=1, le=120),
+    customer=Depends(_get_current_customer),
+    db: Session = Depends(get_db),
+) -> EnergySimulationResponse:
+    service = EnergyService(db)
+    result = service.simulate_customer_data(customer, days=days)
+    return EnergySimulationResponse(
+        customer_id=result.customer_id,
+        days=result.days,
+        sites_processed=result.sites_processed,
+        readings_created=result.readings_created,
+        **{"from": result.from_ts, "to": result.to_ts},
+    )
