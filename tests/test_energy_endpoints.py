@@ -78,3 +78,28 @@ def test_energy_simulation_and_customer_scoped_queries() -> None:
     assert invalid_interval.status_code == 400
 
     app.dependency_overrides.clear()
+
+
+def test_timeseries_rejects_naive_datetime_inputs() -> None:
+    testing_session_local = _setup_test_db()
+
+    def override_get_db():
+        db = testing_session_local()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+    client = TestClient(app)
+
+    token = _register_and_login(client, "Customer Naive", "naive@example.com")
+
+    response = client.get(
+        "/api/customers/me/energy/timeseries?from=2026-01-01T00:00:00",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == "from must include timezone information"
+
+    app.dependency_overrides.clear()

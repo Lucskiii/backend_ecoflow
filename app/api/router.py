@@ -47,6 +47,15 @@ def _get_current_customer(
     return customer
 
 
+def _ensure_aware_utc(dt: datetime, field_name: str) -> datetime:
+    if dt.tzinfo is None or dt.utcoffset() is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"{field_name} must include timezone information",
+        )
+    return dt.astimezone(timezone.utc)
+
+
 @router.get("/customers", response_model=list[CustomerRead])
 def list_customers(db: Session = Depends(get_db)) -> list[CustomerRead]:
     repository = CustomerRepository(db)
@@ -164,8 +173,13 @@ def get_my_energy_timeseries(
     now = datetime.now(timezone.utc)
     if to_ts is None:
         to_ts = now
+    else:
+        to_ts = _ensure_aware_utc(to_ts, "to")
+
     if from_ts is None:
         from_ts = to_ts - timedelta(days=1)
+    else:
+        from_ts = _ensure_aware_utc(from_ts, "from")
 
     if from_ts >= to_ts:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="from must be before to")
