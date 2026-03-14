@@ -12,9 +12,9 @@ requests
 pandas
 python-dateutil
 pytest
-httpx
 black
 isort
 mypy
 pwdlib[argon2]
 PyJWT
+cryptography
