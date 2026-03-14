@@ -19,6 +19,15 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = Field(default=60, alias="JWT_EXPIRE_MINUTES")
     auto_simulate_energy: bool = Field(default=True, alias="AUTO_SIMULATE_ENERGY")
     auto_simulate_days: int = Field(default=30, alias="AUTO_SIMULATE_DAYS")
+    awattar_api_url: str = Field(
+        default="https://api.awattar.at/v1/marketdata", alias="AWATTAR_API_URL"
+    )
+    market_price_refresh_minutes: int = Field(
+        default=60, ge=1, alias="MARKET_PRICE_REFRESH_MINUTES"
+    )
+    market_price_scheduler_enabled: bool = Field(
+        default=True, alias="MARKET_PRICE_SCHEDULER_ENABLED"
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",
