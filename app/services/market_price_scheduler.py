@@ -26,9 +26,18 @@ class MarketPriceScheduler:
         if self._thread and self._thread.is_alive():
             return
 
+        refresh_minutes = self.settings.market_price_refresh_minutes
+        if refresh_minutes <= 0:
+            logger.error(
+                "Invalid MARKET_PRICE_REFRESH_MINUTES=%s, scheduler not started",
+                refresh_minutes,
+            )
+            return
+
+        self._stop_event.clear()
         logger.info(
             "Starting market price scheduler with interval=%s minutes",
-            self.settings.market_price_refresh_minutes,
+            refresh_minutes,
         )
         self._thread = threading.Thread(
             target=self._run_loop, name="market-price-scheduler", daemon=True

@@ -23,7 +23,7 @@ class Settings(BaseSettings):
         default="https://api.awattar.at/v1/marketdata", alias="AWATTAR_API_URL"
     )
     market_price_refresh_minutes: int = Field(
-        default=60, alias="MARKET_PRICE_REFRESH_MINUTES"
+        default=60, ge=1, alias="MARKET_PRICE_REFRESH_MINUTES"
     )
     market_price_scheduler_enabled: bool = Field(
         default=True, alias="MARKET_PRICE_SCHEDULER_ENABLED"
