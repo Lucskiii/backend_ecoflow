@@ -8,9 +8,11 @@ from app.api.router import router as api_router
 from app.config import get_settings
 from app.database import SessionLocal
 from app.services.energy_service import EnergyService
+from app.services.market_price_scheduler import MarketPriceScheduler
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
+market_price_scheduler = MarketPriceScheduler()
 
 app = FastAPI(title=settings.app_name, version=settings.app_version)
 
@@ -23,7 +25,9 @@ def auto_seed_demo_energy_data() -> None:
 
     db = SessionLocal()
     try:
-        EnergyService(db).ensure_demo_energy_data_for_all_customers(days=settings.auto_simulate_days)
+        EnergyService(db).ensure_demo_energy_data_for_all_customers(
+            days=settings.auto_simulate_days
+        )
     finally:
         db.close()
 
@@ -38,3 +42,13 @@ app.add_middleware(
 
 app.include_router(health_router)
 app.include_router(api_router)
+
+
+@app.on_event("startup")
+def start_market_price_scheduler() -> None:
+    market_price_scheduler.start()
+
+
+@app.on_event("shutdown")
+def stop_market_price_scheduler() -> None:
+    market_price_scheduler.stop()

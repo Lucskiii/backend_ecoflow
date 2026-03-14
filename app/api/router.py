@@ -24,8 +24,15 @@ from app.schemas.energy import (
     PortfolioSummaryResponse,
     PortfolioTimeseriesResponse,
 )
-from app.security import create_access_token, decode_access_token, hash_password, verify_password
+from app.schemas.market import MarketPriceRefreshResponse, MarketPriceTimeseriesResponse
+from app.security import (
+    create_access_token,
+    decode_access_token,
+    hash_password,
+    verify_password,
+)
 from app.services.energy_service import EnergyService
+from app.services.market_price_service import MarketPriceService
 from app.services.portfolio_service import PortfolioService
 
 router = APIRouter(prefix="/api", tags=["customers"])
@@ -36,7 +43,10 @@ def _get_current_customer(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ):
-    unauthorized = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired access token")
+    unauthorized = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid or expired access token",
+    )
 
     try:
         payload = decode_access_token(token)
@@ -50,7 +60,10 @@ def _get_current_customer(
     repository = CustomerRepository(db)
     customer = repository.get(customer_id)
     if customer is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Authenticated customer not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Authenticated customer not found",
+        )
     return customer
 
 
@@ -85,7 +98,9 @@ def update_current_customer(
     if payload.email is not None and payload.email != customer.email:
         existing = repository.get_by_email(str(payload.email))
         if existing is not None and existing.id != customer.id:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail="Email already registered"
+            )
 
     return repository.update(customer, payload)
 
@@ -95,22 +110,32 @@ def get_customer(customer_id: int, db: Session = Depends(get_db)) -> CustomerRea
     repository = CustomerRepository(db)
     customer = repository.get(customer_id)
     if customer is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found"
+        )
     return customer
 
 
-@router.post("/customers", response_model=CustomerRead, status_code=status.HTTP_201_CREATED)
-def create_customer(payload: CustomerCreate, db: Session = Depends(get_db)) -> CustomerRead:
+@router.post(
+    "/customers", response_model=CustomerRead, status_code=status.HTTP_201_CREATED
+)
+def create_customer(
+    payload: CustomerCreate, db: Session = Depends(get_db)
+) -> CustomerRead:
     repository = CustomerRepository(db)
     return repository.create(payload)
 
 
 @router.put("/customers/{customer_id}", response_model=CustomerRead)
-def update_customer(customer_id: int, payload: CustomerUpdate, db: Session = Depends(get_db)) -> CustomerRead:
+def update_customer(
+    customer_id: int, payload: CustomerUpdate, db: Session = Depends(get_db)
+) -> CustomerRead:
     repository = CustomerRepository(db)
     customer = repository.get(customer_id)
     if customer is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found"
+        )
     return repository.update(customer, payload)
 
 
@@ -119,16 +144,26 @@ def delete_customer(customer_id: int, db: Session = Depends(get_db)) -> None:
     repository = CustomerRepository(db)
     customer = repository.get(customer_id)
     if customer is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found"
+        )
     repository.delete(customer)
 
 
-@router.post("/auth/register", response_model=AuthenticatedCustomer, status_code=status.HTTP_201_CREATED)
-def register_customer(payload: CustomerRegister, db: Session = Depends(get_db)) -> AuthenticatedCustomer:
+@router.post(
+    "/auth/register",
+    response_model=AuthenticatedCustomer,
+    status_code=status.HTTP_201_CREATED,
+)
+def register_customer(
+    payload: CustomerRegister, db: Session = Depends(get_db)
+) -> AuthenticatedCustomer:
     repository = CustomerRepository(db)
     existing = repository.get_by_email(str(payload.email))
     if existing is not None:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Email already registered"
+        )
 
     customer = repository.create(payload, password_hash=hash_password(payload.password))
     token = create_access_token(str(customer.id))
@@ -136,14 +171,20 @@ def register_customer(payload: CustomerRegister, db: Session = Depends(get_db)) 
 
 
 @router.post("/auth/login", response_model=TokenResponse)
-def login_customer(payload: CustomerLogin, db: Session = Depends(get_db)) -> TokenResponse:
+def login_customer(
+    payload: CustomerLogin, db: Session = Depends(get_db)
+) -> TokenResponse:
     repository = CustomerRepository(db)
     customer = repository.get_by_email(str(payload.email))
     if customer is None or not customer.password_hash:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password"
+        )
 
     if not verify_password(payload.password, customer.password_hash):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password"
+        )
 
     token = create_access_token(str(customer.id))
     return TokenResponse(access_token=token)
@@ -162,7 +203,9 @@ def get_my_energy_summary(
     db: Session = Depends(get_db),
 ) -> EnergySummaryResponse:
     service = EnergyService(db)
-    return EnergySummaryResponse(**service.energy_summary(customer.id, period=period, site_id=site_id))
+    return EnergySummaryResponse(
+        **service.energy_summary(customer.id, period=period, site_id=site_id)
+    )
 
 
 @router.get("/customers/me/energy/timeseries", response_model=EnergyTimeseriesResponse)
@@ -175,7 +218,10 @@ def get_my_energy_timeseries(
     db: Session = Depends(get_db),
 ) -> EnergyTimeseriesResponse:
     if interval != "15m":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only 15m interval is supported")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only 15m interval is supported",
+        )
 
     now = datetime.now(timezone.utc)
     if to_ts is None:
@@ -189,10 +235,16 @@ def get_my_energy_timeseries(
         from_ts = _ensure_aware_utc(from_ts, "from")
 
     if from_ts >= to_ts:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="from must be before to")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="from must be before to"
+        )
 
     service = EnergyService(db)
-    return EnergyTimeseriesResponse(**service.energy_timeseries(customer.id, from_ts=from_ts, to_ts=to_ts, site_id=site_id))
+    return EnergyTimeseriesResponse(
+        **service.energy_timeseries(
+            customer.id, from_ts=from_ts, to_ts=to_ts, site_id=site_id
+        )
+    )
 
 
 @router.get("/portfolio/export/summary", response_model=PortfolioSummaryResponse)
@@ -212,7 +264,10 @@ def get_portfolio_export_timeseries(
     db: Session = Depends(get_db),
 ) -> PortfolioTimeseriesResponse:
     if interval != "15m":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only 15m interval is supported")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only 15m interval is supported",
+        )
 
     now = datetime.now(timezone.utc)
     if to_ts is None:
@@ -226,10 +281,14 @@ def get_portfolio_export_timeseries(
         from_ts = _ensure_aware_utc(from_ts, "from")
 
     if from_ts >= to_ts:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="from must be before to")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="from must be before to"
+        )
 
     service = PortfolioService(db)
-    return PortfolioTimeseriesResponse(**service.export_timeseries(from_ts=from_ts, to_ts=to_ts))
+    return PortfolioTimeseriesResponse(
+        **service.export_timeseries(from_ts=from_ts, to_ts=to_ts)
+    )
 
 
 @router.post("/customers/me/energy/simulate", response_model=EnergySimulationResponse)
@@ -247,3 +306,44 @@ def simulate_my_energy_data(
         readings_created=result.readings_created,
         **{"from": result.from_ts, "to": result.to_ts},
     )
+
+
+@router.get("/market/prices", response_model=MarketPriceTimeseriesResponse)
+def get_market_prices(
+    from_ts: datetime | None = Query(default=None, alias="from"),
+    to_ts: datetime | None = Query(default=None, alias="to"),
+    db: Session = Depends(get_db),
+) -> MarketPriceTimeseriesResponse:
+    now = datetime.now(timezone.utc)
+    if to_ts is None:
+        to_ts = now
+    else:
+        to_ts = _ensure_aware_utc(to_ts, "to")
+
+    if from_ts is None:
+        from_ts = to_ts - timedelta(days=1)
+    else:
+        from_ts = _ensure_aware_utc(from_ts, "from")
+
+    if from_ts >= to_ts:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="from must be before to"
+        )
+
+    payload = MarketPriceService(db).get_prices(from_ts=from_ts, to_ts=to_ts)
+    return MarketPriceTimeseriesResponse(**payload)
+
+
+@router.get("/market/prices/latest", response_model=MarketPriceTimeseriesResponse)
+def get_latest_market_prices(
+    hours: int = Query(default=24, ge=1, le=168),
+    db: Session = Depends(get_db),
+) -> MarketPriceTimeseriesResponse:
+    payload = MarketPriceService(db).get_latest_window(hours=hours)
+    return MarketPriceTimeseriesResponse(**payload)
+
+
+@router.post("/market/prices/refresh", response_model=MarketPriceRefreshResponse)
+def refresh_market_prices(db: Session = Depends(get_db)) -> MarketPriceRefreshResponse:
+    inserted = MarketPriceService(db).refresh_prices()
+    return MarketPriceRefreshResponse(inserted=inserted)
