@@ -41,6 +41,12 @@ class MarketPriceService:
         self.db = db
         self.settings = get_settings()
 
+    @staticmethod
+    def _normalize_ts_utc(ts: datetime) -> datetime:
+        if ts.tzinfo is None:
+            return ts
+        return ts.astimezone(timezone.utc).replace(tzinfo=None)
+
     def _fetch_marketdata(
         self, start_ms: int | None = None, end_ms: int | None = None
     ) -> list[AwattarPricePoint]:
@@ -128,47 +134,81 @@ class MarketPriceService:
         )
 
         points = self._fetch_marketdata(start_ms=start_ms, end_ms=end_ms)
+        api_points_count = len(points)
         if not points:
+            logger.info(
+                "Market price refresh complete source=%s api_points=%s existing=%s inserted=%s",
+                self.SOURCE,
+                0,
+                0,
+                0,
+            )
             return 0
 
-        market = self._get_or_create_market()
-        product = self._get_or_create_product(market.id)
-        bidding_zone = self._get_or_create_bidding_zone()
+        try:
+            market = self._get_or_create_market()
+            product = self._get_or_create_product(market.id)
+            bidding_zone = self._get_or_create_bidding_zone()
 
-        min_ts = min(point.ts_utc for point in points)
-        max_ts = max(point.ts_utc for point in points)
-        existing_ts = set(
-            self.db.scalars(
-                select(CoreTsMarketPrice.ts).where(
-                    CoreTsMarketPrice.market_product_id == product.id,
-                    CoreTsMarketPrice.bidding_zone_id == bidding_zone.id,
-                    CoreTsMarketPrice.ts >= min_ts,
-                    CoreTsMarketPrice.ts <= max_ts,
-                )
+            points_by_key: dict[tuple[int, int, datetime], AwattarPricePoint] = {}
+            for point in points:
+                normalized_ts = self._normalize_ts_utc(point.ts_utc)
+                key = (product.id, bidding_zone.id, normalized_ts)
+                points_by_key[key] = point
+
+            min_ts = min(key[2] for key in points_by_key)
+            max_ts = max(key[2] for key in points_by_key)
+
+            existing_keys = set(
+                self.db.execute(
+                    select(
+                        CoreTsMarketPrice.market_product_id,
+                        CoreTsMarketPrice.bidding_zone_id,
+                        CoreTsMarketPrice.ts,
+                    ).where(
+                        CoreTsMarketPrice.market_product_id == product.id,
+                        CoreTsMarketPrice.bidding_zone_id == bidding_zone.id,
+                        CoreTsMarketPrice.ts >= min_ts,
+                        CoreTsMarketPrice.ts <= max_ts,
+                    )
+                ).all()
             )
-        )
 
-        inserted = 0
-        for point in points:
-            if point.ts_utc in existing_ts:
-                continue
-
-            self.db.add(
+            to_insert = [
                 CoreTsMarketPrice(
-                    market_product_id=product.id,
-                    bidding_zone_id=bidding_zone.id,
-                    ts=point.ts_utc,
+                    market_product_id=key[0],
+                    bidding_zone_id=key[1],
+                    ts=key[2],
                     price=point.price_eur_mwh,
                     currency="EUR",
                 )
-            )
-            inserted += 1
+                for key, point in points_by_key.items()
+                if key not in existing_keys
+            ]
 
-        self.db.commit()
-        logger.info(
-            "Market price refresh complete source=%s inserted=%s", self.SOURCE, inserted
-        )
-        return inserted
+            inserted = len(to_insert)
+            existing_count = len(points_by_key) - inserted
+
+            if to_insert:
+                self.db.add_all(to_insert)
+
+            self.db.commit()
+            logger.info(
+                "Market price refresh complete source=%s api_points=%s existing=%s inserted=%s",
+                self.SOURCE,
+                api_points_count,
+                existing_count,
+                inserted,
+            )
+            return inserted
+        except Exception:
+            self.db.rollback()
+            logger.exception(
+                "Market price refresh failed source=%s api_points=%s",
+                self.SOURCE,
+                api_points_count,
+            )
+            raise
 
     def get_prices(self, from_ts: datetime, to_ts: datetime) -> dict:
         market = self.db.scalar(
