@@ -16,8 +16,18 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column("core_customer", sa.Column("password_hash", sa.String(length=255), nullable=True))
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    existing_columns = {column["name"] for column in inspector.get_columns("core_customer")}
+
+    if "password_hash" not in existing_columns:
+        op.add_column("core_customer", sa.Column("password_hash", sa.String(length=255), nullable=True))
 
 
 def downgrade() -> None:
-    op.drop_column("core_customer", "password_hash")
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    existing_columns = {column["name"] for column in inspector.get_columns("core_customer")}
+
+    if "password_hash" in existing_columns:
+        op.drop_column("core_customer", "password_hash")
