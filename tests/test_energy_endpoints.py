@@ -12,6 +12,8 @@ from app.models.tables import CoreMeter, CoreTsMeterReading, Site
 def _setup_test_db() -> sessionmaker[Session]:
     engine = create_engine("sqlite+pysqlite:///:memory:")
     testing_session_local = sessionmaker(bind=engine, autocommit=False, autoflush=False, class_=Session)
+    # Test-only: create_all is acceptable for isolated in-memory SQLite tests.
+    # Production schema changes must go through Alembic migrations only.
     Base.metadata.create_all(bind=engine)
     return testing_session_local
 
