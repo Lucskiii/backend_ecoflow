@@ -98,65 +98,50 @@ def _backfill_energy_fields() -> None:
 
 
 def upgrade() -> None:
-    bind = op.get_bind()
-    inspector = sa.inspect(bind)
-    existing_columns = {column["name"] for column in inspector.get_columns("core_daily_consumption")}
-
-    if "grid_import_kwh" not in existing_columns:
-        op.add_column(
-            "core_daily_consumption",
-            sa.Column("grid_import_kwh", sa.Numeric(10, 3), nullable=False, server_default="0"),
-        )
-    if "grid_export_kwh" not in existing_columns:
-        op.add_column(
-            "core_daily_consumption",
-            sa.Column("grid_export_kwh", sa.Numeric(10, 3), nullable=False, server_default="0"),
-        )
-    if "pv_generation_kwh" not in existing_columns:
-        op.add_column(
-            "core_daily_consumption",
-            sa.Column("pv_generation_kwh", sa.Numeric(10, 3), nullable=False, server_default="0"),
-        )
-    if "self_consumption_share_pct" not in existing_columns:
-        op.add_column(
-            "core_daily_consumption",
-            sa.Column("self_consumption_share_pct", sa.Numeric(5, 2), nullable=False, server_default="0"),
-        )
+    op.add_column(
+        "core_daily_consumption",
+        sa.Column("grid_import_kwh", sa.Numeric(10, 3), nullable=False, server_default="0"),
+    )
+    op.add_column(
+        "core_daily_consumption",
+        sa.Column("grid_export_kwh", sa.Numeric(10, 3), nullable=False, server_default="0"),
+    )
+    op.add_column(
+        "core_daily_consumption",
+        sa.Column("pv_generation_kwh", sa.Numeric(10, 3), nullable=False, server_default="0"),
+    )
+    op.add_column(
+        "core_daily_consumption",
+        sa.Column("self_consumption_share_pct", sa.Numeric(5, 2), nullable=False, server_default="0"),
+    )
 
     _backfill_energy_fields()
 
-    existing_constraints = {constraint["name"] for constraint in inspector.get_check_constraints("core_daily_consumption")}
-
-    if "ck_daily_consumption_non_negative" not in existing_constraints:
-        op.create_check_constraint(
-            "ck_daily_consumption_non_negative",
-            "core_daily_consumption",
-            "consumption_kwh >= 0",
-        )
-    if "ck_daily_grid_import_non_negative" not in existing_constraints:
-        op.create_check_constraint(
-            "ck_daily_grid_import_non_negative",
-            "core_daily_consumption",
-            "grid_import_kwh >= 0",
-        )
-    if "ck_daily_grid_export_non_negative" not in existing_constraints:
-        op.create_check_constraint(
-            "ck_daily_grid_export_non_negative",
-            "core_daily_consumption",
-            "grid_export_kwh >= 0",
-        )
-    if "ck_daily_pv_generation_non_negative" not in existing_constraints:
-        op.create_check_constraint(
-            "ck_daily_pv_generation_non_negative",
-            "core_daily_consumption",
-            "pv_generation_kwh >= 0",
-        )
-    if "ck_daily_self_consumption_share_pct_range" not in existing_constraints:
-        op.create_check_constraint(
-            "ck_daily_self_consumption_share_pct_range",
-            "core_daily_consumption",
-            "self_consumption_share_pct >= 0 AND self_consumption_share_pct <= 100",
-        )
+    op.create_check_constraint(
+        "ck_daily_consumption_non_negative",
+        "core_daily_consumption",
+        "consumption_kwh >= 0",
+    )
+    op.create_check_constraint(
+        "ck_daily_grid_import_non_negative",
+        "core_daily_consumption",
+        "grid_import_kwh >= 0",
+    )
+    op.create_check_constraint(
+        "ck_daily_grid_export_non_negative",
+        "core_daily_consumption",
+        "grid_export_kwh >= 0",
+    )
+    op.create_check_constraint(
+        "ck_daily_pv_generation_non_negative",
+        "core_daily_consumption",
+        "pv_generation_kwh >= 0",
+    )
+    op.create_check_constraint(
+        "ck_daily_self_consumption_share_pct_range",
+        "core_daily_consumption",
+        "self_consumption_share_pct >= 0 AND self_consumption_share_pct <= 100",
+    )
 
     op.alter_column("core_daily_consumption", "grid_import_kwh", server_default=None)
     op.alter_column("core_daily_consumption", "grid_export_kwh", server_default=None)
@@ -165,27 +150,13 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    bind = op.get_bind()
-    inspector = sa.inspect(bind)
-    existing_constraints = {constraint["name"] for constraint in inspector.get_check_constraints("core_daily_consumption")}
+    op.drop_constraint("ck_daily_self_consumption_share_pct_range", "core_daily_consumption", type_="check")
+    op.drop_constraint("ck_daily_pv_generation_non_negative", "core_daily_consumption", type_="check")
+    op.drop_constraint("ck_daily_grid_export_non_negative", "core_daily_consumption", type_="check")
+    op.drop_constraint("ck_daily_grid_import_non_negative", "core_daily_consumption", type_="check")
+    op.drop_constraint("ck_daily_consumption_non_negative", "core_daily_consumption", type_="check")
 
-    if "ck_daily_self_consumption_share_pct_range" in existing_constraints:
-        op.drop_constraint("ck_daily_self_consumption_share_pct_range", "core_daily_consumption", type_="check")
-    if "ck_daily_pv_generation_non_negative" in existing_constraints:
-        op.drop_constraint("ck_daily_pv_generation_non_negative", "core_daily_consumption", type_="check")
-    if "ck_daily_grid_export_non_negative" in existing_constraints:
-        op.drop_constraint("ck_daily_grid_export_non_negative", "core_daily_consumption", type_="check")
-    if "ck_daily_grid_import_non_negative" in existing_constraints:
-        op.drop_constraint("ck_daily_grid_import_non_negative", "core_daily_consumption", type_="check")
-    if "ck_daily_consumption_non_negative" in existing_constraints:
-        op.drop_constraint("ck_daily_consumption_non_negative", "core_daily_consumption", type_="check")
-
-    existing_columns = {column["name"] for column in inspector.get_columns("core_daily_consumption")}
-    if "self_consumption_share_pct" in existing_columns:
-        op.drop_column("core_daily_consumption", "self_consumption_share_pct")
-    if "pv_generation_kwh" in existing_columns:
-        op.drop_column("core_daily_consumption", "pv_generation_kwh")
-    if "grid_export_kwh" in existing_columns:
-        op.drop_column("core_daily_consumption", "grid_export_kwh")
-    if "grid_import_kwh" in existing_columns:
-        op.drop_column("core_daily_consumption", "grid_import_kwh")
+    op.drop_column("core_daily_consumption", "self_consumption_share_pct")
+    op.drop_column("core_daily_consumption", "pv_generation_kwh")
+    op.drop_column("core_daily_consumption", "grid_export_kwh")
+    op.drop_column("core_daily_consumption", "grid_import_kwh")
