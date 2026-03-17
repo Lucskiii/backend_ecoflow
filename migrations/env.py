@@ -9,6 +9,7 @@ import app.models  # noqa: F401
 
 config = context.config
 settings = get_settings()
+# Force Alembic to use the exact same DATABASE_URL as the application runtime.
 config.set_main_option("sqlalchemy.url", settings.database_url)
 
 if config.config_file_name is not None:
