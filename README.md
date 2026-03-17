@@ -63,3 +63,22 @@ tests/
 - Logical layers are represented as MySQL table prefixes: `raw_`, `core_`, and `bi_`.
 - Run `python -m alembic upgrade head` to create all tables, constraints, and indexes in MySQL 8.
 - Configure your connection in `.env` using `DATABASE_URL` (example provided in `.env.example`).
+
+## Simulated daily consumption
+
+The backend now maintains a customer-level daily consumption table (`core_daily_consumption`).
+
+- When the consumption daily endpoint is called with `auto_generate=true` (default), the backend first checks whether data exists up to today.
+- Missing days are simulated and inserted only for gaps between the latest available date and today.
+- Existing rows are never regenerated, and `(customer_id, consumption_date)` is unique to prevent duplicates.
+- For new customers with no data, the service initializes the last 90 days plus today.
+
+### Consumption endpoints
+
+- `GET /api/customers/{customer_id}/consumption/daily`
+  - Query params: `start_date`, `end_date`, `auto_generate`
+  - Defaults to last 90 days when no date range is provided
+- `POST /api/customers/{customer_id}/consumption/simulate`
+  - Manually triggers missing day simulation up to today
+- `GET /api/customers/{customer_id}/consumption/status`
+  - Returns latest available date and whether days are missing through today
