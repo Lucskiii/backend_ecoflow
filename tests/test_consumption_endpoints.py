@@ -51,10 +51,27 @@ def _service_with_stubs() -> ConsumptionSimulationService:
     return service
 
 
+def _assert_energy_consistency(row: CoreDailyConsumption) -> None:
+    assert row.consumption_kwh >= 0
+    assert row.grid_import_kwh >= 0
+    assert row.grid_export_kwh >= 0
+    assert row.pv_generation_kwh >= 0
+    assert Decimal("0") <= row.self_consumption_share_pct <= Decimal("100")
+
+    self_consumption_kwh = min(row.consumption_kwh, row.pv_generation_kwh)
+    assert row.grid_import_kwh == (row.consumption_kwh - self_consumption_kwh).quantize(Decimal("0.001"))
+    assert row.grid_export_kwh == (row.pv_generation_kwh - self_consumption_kwh).quantize(Decimal("0.001"))
+
+
 def test_first_generation_for_new_customer() -> None:
     service = _service_with_stubs()
     created = service.ensure_customer_consumption_data(1)
     assert created == 91
+
+    generated_rows = list(service.consumption_repository.rows.values())
+    assert generated_rows
+    for row in generated_rows:
+        _assert_energy_consistency(row)
 
 
 def test_repeated_generation_does_not_create_duplicates() -> None:
@@ -74,6 +91,10 @@ def test_generation_fills_only_missing_days() -> None:
         customer_id=1,
         consumption_date=existing_day,
         consumption_kwh=Decimal("10.000"),
+        grid_import_kwh=Decimal("9.000"),
+        grid_export_kwh=Decimal("0.500"),
+        pv_generation_kwh=Decimal("1.500"),
+        self_consumption_share_pct=Decimal("66.67"),
         source_type="simulated",
     )
 
@@ -94,16 +115,24 @@ def test_get_daily_endpoint_returns_generated_data() -> None:
                 customer_id=customer_id,
                 consumption_date=end_date - timedelta(days=1),
                 consumption_kwh=Decimal("8.125"),
+                grid_import_kwh=Decimal("4.225"),
+                grid_export_kwh=Decimal("0.000"),
+                pv_generation_kwh=Decimal("3.900"),
+                self_consumption_share_pct=Decimal("100.00"),
                 source_type="simulated",
-                created_at=datetime.now(timezone.utc)
+                created_at=datetime.now(timezone.utc),
             ),
             CoreDailyConsumption(
                 consumption_id=2,
                 customer_id=customer_id,
                 consumption_date=end_date,
                 consumption_kwh=Decimal("9.200"),
+                grid_import_kwh=Decimal("6.300"),
+                grid_export_kwh=Decimal("0.000"),
+                pv_generation_kwh=Decimal("2.900"),
+                self_consumption_share_pct=Decimal("100.00"),
                 source_type="simulated",
-                created_at=datetime.now(timezone.utc)
+                created_at=datetime.now(timezone.utc),
             ),
         ]
 
@@ -118,6 +147,10 @@ def test_get_daily_endpoint_returns_generated_data() -> None:
         payload = response.json()
         assert len(payload) == 2
         assert payload[-1]["consumption_kwh"] == "9.200"
+        assert payload[-1]["grid_import_kwh"] == "6.300"
+        assert payload[-1]["grid_export_kwh"] == "0.000"
+        assert payload[-1]["pv_generation_kwh"] == "2.900"
+        assert payload[-1]["self_consumption_share_pct"] == "100.00"
     finally:
         ConsumptionSimulationService.ensure_customer_consumption_data = original_ensure
         ConsumptionSimulationService.list_consumption = original_list
@@ -144,6 +177,10 @@ def test_bulk_insert_duplicate_race_returns_zero() -> None:
             customer_id=1,
             consumption_date=date.today(),
             consumption_kwh=Decimal("7.111"),
+            grid_import_kwh=Decimal("6.011"),
+            grid_export_kwh=Decimal("0.000"),
+            pv_generation_kwh=Decimal("1.100"),
+            self_consumption_share_pct=Decimal("100.00"),
             source_type="simulated",
         )
     ]
