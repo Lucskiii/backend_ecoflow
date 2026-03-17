@@ -25,7 +25,12 @@ from app.schemas.energy import (
     PortfolioTimeseriesResponse,
 )
 from app.schemas.market import MarketPriceRefreshResponse, MarketPriceTimeseriesResponse
-from app.security import create_access_token, decode_access_token
+from app.security import (
+    create_access_token,
+    decode_access_token,
+    hash_password,
+    verify_password,
+)
 from app.services.consumption_simulation_service import ConsumptionSimulationService
 from app.services.energy_service import EnergyService
 from app.services.market_price_service import MarketPriceService
@@ -91,6 +96,13 @@ def update_current_customer(
 ) -> CustomerRead:
     repository = CustomerRepository(db)
 
+    if payload.email is not None and payload.email != customer.email:
+        existing = repository.get_by_email(str(payload.email))
+        if existing is not None and existing.id != customer.id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail="Email already registered"
+            )
+
     return repository.update(customer, payload)
 
 
@@ -103,6 +115,7 @@ def get_customer(customer_id: int, db: Session = Depends(get_db)) -> CustomerRea
             status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found"
         )
 
+    ConsumptionSimulationService(db).ensure_customer_consumption_data(customer_id)
     return customer
 
 
@@ -149,8 +162,14 @@ def register_customer(
     payload: CustomerRegister, db: Session = Depends(get_db)
 ) -> AuthenticatedCustomer:
     repository = CustomerRepository(db)
-    customer = repository.create(payload)
-    token = create_access_token(str(customer.customer_id))
+    existing = repository.get_by_email(str(payload.email))
+    if existing is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Email already registered"
+        )
+
+    customer = repository.create(payload, password_hash=hash_password(payload.password))
+    token = create_access_token(str(customer.id))
     return AuthenticatedCustomer(customer=customer, access_token=token)
 
 
@@ -159,12 +178,18 @@ def login_customer(
     payload: CustomerLogin, db: Session = Depends(get_db)
 ) -> TokenResponse:
     repository = CustomerRepository(db)
-    customer = repository.get(payload.customer_id)
-    if customer is None:
+    customer = repository.get_by_email(str(payload.email))
+    if customer is None or not customer.password_hash:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password"
         )
-    token = create_access_token(str(customer.customer_id))
+
+    if not verify_password(payload.password, customer.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password"
+        )
+
+    token = create_access_token(str(customer.id))
     return TokenResponse(access_token=token)
 
 
@@ -182,7 +207,7 @@ def get_my_energy_summary(
 ) -> EnergySummaryResponse:
     service = EnergyService(db)
     return EnergySummaryResponse(
-        **service.energy_summary(customer.customer_id, period=period, site_id=site_id)
+        **service.energy_summary(customer.id, period=period, site_id=site_id)
     )
 
 
@@ -220,7 +245,7 @@ def get_my_energy_timeseries(
     service = EnergyService(db)
     return EnergyTimeseriesResponse(
         **service.energy_timeseries(
-            customer.customer_id, from_ts=from_ts, to_ts=to_ts, site_id=site_id
+            customer.id, from_ts=from_ts, to_ts=to_ts, site_id=site_id
         )
     )
 

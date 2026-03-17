@@ -86,7 +86,7 @@ class EnergyService:
         start_ts = end_ts - timedelta(days=days)
 
         quality_flag_id = self._get_or_create_quality_flag()
-        sites = self._get_or_create_sites(customer.customer_id)
+        sites = self._get_or_create_sites(customer.id)
 
         site_meters: dict[int, dict[str, CoreMeter]] = {site.id: self._get_or_create_meters(site) for site in sites}
 
@@ -103,7 +103,7 @@ class EnergyService:
 
         for site in sites:
             meters = site_meters[site.id]
-            base_seed = customer.customer_id * 10000 + site.id
+            base_seed = customer.id * 10000 + site.id
             for step in range(total_steps):
                 ts = start_ts + timedelta(seconds=step * INTERVAL_SECONDS)
                 hour = ts.hour + ts.minute / 60
@@ -151,7 +151,7 @@ class EnergyService:
         self.db.commit()
 
         return SimulationResult(
-            customer_id=customer.customer_id,
+            customer_id=customer.id,
             days=days,
             sites_processed=len(sites),
             readings_created=len(readings),
@@ -170,23 +170,23 @@ class EnergyService:
         return self.db.scalar(has_data_query) is not None
 
     def ensure_demo_energy_data_for_all_customers(self, days: int = 30) -> None:
-        customers = list(self.db.scalars(select(Customer).order_by(Customer.customer_id)))
+        customers = list(self.db.scalars(select(Customer).order_by(Customer.id)))
         logger.info("Auto energy simulation: found %s customer(s)", len(customers))
 
         for customer in customers:
-            if self.customer_has_energy_data(customer.customer_id):
+            if self.customer_has_energy_data(customer.id):
                 logger.info(
                     "Auto energy simulation: skipped customer id=%s email=%s (existing data)",
-                    customer.customer_id,
-                    f"customer={customer.customer_id}",
+                    customer.id,
+                    customer.email,
                 )
                 continue
 
             result = self.simulate_customer_data(customer, days=days)
             logger.info(
                 "Auto energy simulation: simulated customer id=%s email=%s readings=%s days=%s",
-                customer.customer_id,
-                f"customer={customer.customer_id}",
+                customer.id,
+                customer.email,
                 result.readings_created,
                 days,
             )

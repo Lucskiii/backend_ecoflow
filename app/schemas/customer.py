@@ -1,35 +1,38 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class CustomerBase(BaseModel):
-    customer_type: str = Field(pattern="^(household|sme|industrial)$")
+    name: str = Field(min_length=1)
+    email: EmailStr
 
 
 class CustomerCreate(CustomerBase):
     pass
 
 
-class CustomerRegister(BaseModel):
-    customer_type: str = Field(pattern="^(household|sme|industrial)$")
+class CustomerRegister(CustomerBase):
+    password: str = Field(min_length=8)
 
 
 class CustomerLogin(BaseModel):
-    customer_id: int
+    email: EmailStr
     password: str = Field(min_length=1)
 
 
 class CustomerUpdate(BaseModel):
-    customer_type: str | None = Field(default=None, pattern="^(household|sme|industrial)$")
+    name: str | None = Field(default=None, min_length=1)
+    email: EmailStr | None = None
 
 
 class CustomerSelfUpdate(BaseModel):
-    customer_type: str | None = Field(default=None, pattern="^(household|sme|industrial)$")
+    name: str | None = Field(default=None, min_length=1)
+    email: EmailStr | None = None
 
 
 class CustomerRead(CustomerBase):
-    customer_id: int
+    id: int
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

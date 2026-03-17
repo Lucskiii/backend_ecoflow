@@ -10,14 +10,16 @@ class CustomerRepository:
         self.db = db
 
     def list(self) -> list[Customer]:
-        return list(self.db.scalars(select(Customer).order_by(Customer.customer_id)))
+        return list(self.db.scalars(select(Customer).order_by(Customer.id)))
 
     def get(self, customer_id: int) -> Customer | None:
         return self.db.get(Customer, customer_id)
 
+    def get_by_email(self, email: str) -> Customer | None:
+        return self.db.scalar(select(Customer).where(Customer.email == email))
+
     def create(self, payload: CustomerCreate, password_hash: str | None = None) -> Customer:
-        del password_hash  # Schema has no password_hash column in core_customer.
-        customer = Customer(customer_type=payload.customer_type)
+        customer = Customer(name=payload.name, email=payload.email, password_hash=password_hash)
         self.db.add(customer)
         self.db.commit()
         self.db.refresh(customer)

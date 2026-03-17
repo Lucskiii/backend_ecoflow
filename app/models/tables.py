@@ -76,16 +76,49 @@ class CoreGridZone(Base):
 class Customer(Base):
     __tablename__ = "core_customer"
 
-    customer_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    customer_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    password_hash: Mapped[str | None] = mapped_column(String(255))
+    external_ref: Mapped[str | None] = mapped_column(String(64), unique=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
+
+
+class CoreDailyConsumption(Base):
+    __tablename__ = "core_daily_consumption"
+
+    consumption_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    customer_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("core_customer.id", ondelete="CASCADE"), nullable=False
+    )
+    consumption_date: Mapped[date] = mapped_column(Date, nullable=False)
+    consumption_kwh: Mapped[Decimal] = mapped_column(Numeric(10, 3), nullable=False)
+    grid_import_kwh: Mapped[Decimal] = mapped_column(Numeric(10, 3), nullable=False)
+    grid_export_kwh: Mapped[Decimal] = mapped_column(Numeric(10, 3), nullable=False)
+    pv_generation_kwh: Mapped[Decimal] = mapped_column(Numeric(10, 3), nullable=False)
+    self_consumption_share_pct: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False)
+    source_type: Mapped[str] = mapped_column(String(32), nullable=False, server_default="simulated")
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("customer_id", "consumption_date", name="uq_daily_consumption_customer_date"),
+        CheckConstraint("consumption_kwh >= 0", name="ck_daily_consumption_non_negative"),
+        CheckConstraint("grid_import_kwh >= 0", name="ck_daily_grid_import_non_negative"),
+        CheckConstraint("grid_export_kwh >= 0", name="ck_daily_grid_export_non_negative"),
+        CheckConstraint("pv_generation_kwh >= 0", name="ck_daily_pv_generation_non_negative"),
+        CheckConstraint(
+            "self_consumption_share_pct >= 0 AND self_consumption_share_pct <= 100",
+            name="ck_daily_self_consumption_share_pct_range",
+        ),
+        Index("ix_daily_consumption_customer_date", "customer_id", "consumption_date"),
+    )
 
 
 class Site(Base):
     __tablename__ = "core_site"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    customer_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("core_customer.customer_id", ondelete="RESTRICT"), nullable=False)
+    customer_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("core_customer.id", ondelete="CASCADE"), nullable=False)
     grid_zone_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("core_grid_zone.id"))
     site_code: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -340,7 +373,7 @@ class CoreContract(Base):
     __tablename__ = "core_contract"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    customer_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("core_customer.customer_id", ondelete="CASCADE"), nullable=False)
+    customer_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("core_customer.id", ondelete="CASCADE"), nullable=False)
     contract_code: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
     starts_on: Mapped[date] = mapped_column(Date, nullable=False)
     ends_on: Mapped[date | None] = mapped_column(Date)
@@ -376,7 +409,7 @@ class BiDimCustomer(Base):
     __tablename__ = "bi_dim_customer"
 
     customer_key: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    customer_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("core_customer.customer_id"), nullable=False, unique=True)
+    customer_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("core_customer.id"), nullable=False, unique=True)
     customer_name: Mapped[str] = mapped_column(String(255), nullable=False)
 
 
