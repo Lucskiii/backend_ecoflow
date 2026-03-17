@@ -1,8 +1,10 @@
+import json
 from functools import lru_cache
+from typing import Annotated
 
 from dotenv import load_dotenv
-from pydantic import Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 load_dotenv()
 
@@ -28,9 +30,32 @@ class Settings(BaseSettings):
     market_price_scheduler_enabled: bool = Field(
         default=True, alias="MARKET_PRICE_SCHEDULER_ENABLED"
     )
-    cors_allow_origins: list[str] = Field(
+    cors_allow_origins: Annotated[list[str], NoDecode] = Field(
         default=["http://localhost:4200"], alias="CORS_ALLOW_ORIGINS"
     )
+
+    @field_validator("cors_allow_origins", mode="before")
+    @classmethod
+    def parse_cors_allow_origins(cls, value: str | list[str]) -> list[str]:
+        if isinstance(value, list):
+            return value
+
+        normalized_value = value.strip()
+        if not normalized_value:
+            return []
+
+        try:
+            parsed_value = json.loads(normalized_value)
+        except json.JSONDecodeError:
+            parsed_value = None
+
+        if isinstance(parsed_value, list):
+            return [origin.strip() for origin in parsed_value if isinstance(origin, str)]
+
+        if isinstance(parsed_value, str):
+            return [parsed_value.strip()]
+
+        return [origin.strip() for origin in normalized_value.split(",") if origin.strip()]
 
     model_config = SettingsConfigDict(
         env_file=".env",
