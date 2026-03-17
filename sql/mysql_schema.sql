@@ -4,8 +4,8 @@
 -- Layering über Tabellenpräfixe: raw_, core_, bi_
 -- ============================================================
 
-CREATE DATABASE IF NOT EXISTS ecoflw;
-USE ecoflw;
+CREATE DATABASE IF NOT EXISTS energy_db;
+USE energy_db;
 
 -- ============================================================
 -- RAW / STAGING
