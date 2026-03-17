@@ -31,7 +31,6 @@ from app.security import (
     hash_password,
     verify_password,
 )
-from app.services.consumption_simulation_service import ConsumptionSimulationService
 from app.services.energy_service import EnergyService
 from app.services.market_price_service import MarketPriceService
 from app.services.portfolio_service import PortfolioService
@@ -114,8 +113,6 @@ def get_customer(customer_id: int, db: Session = Depends(get_db)) -> CustomerRea
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found"
         )
-
-    ConsumptionSimulationService(db).ensure_customer_consumption_data(customer_id)
     return customer
 
 
