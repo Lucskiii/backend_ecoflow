@@ -66,13 +66,12 @@ tests/
 
 ## Simulated daily consumption
 
-The backend now maintains a customer-level daily energy summary table (`core_daily_consumption`).
+The backend now maintains a customer-level daily consumption table (`core_daily_consumption`).
 
 - When the consumption daily endpoint is called with `auto_generate=true` (default), the backend first checks whether data exists up to today.
 - Missing days are simulated and inserted only for gaps between the latest available date and today.
 - Existing rows are never regenerated, and `(customer_id, consumption_date)` is unique to prevent duplicates.
 - For new customers with no data, the service initializes the last 90 days plus today.
-- Each daily row now includes: `consumption_kwh`, `grid_import_kwh`, `grid_export_kwh`, `pv_generation_kwh`, and `self_consumption_share_pct`.
 
 ### Consumption endpoints
 

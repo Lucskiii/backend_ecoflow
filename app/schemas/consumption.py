@@ -9,10 +9,6 @@ class DailyConsumptionRead(BaseModel):
     customer_id: int
     consumption_date: date
     consumption_kwh: Decimal
-    grid_import_kwh: Decimal
-    grid_export_kwh: Decimal
-    pv_generation_kwh: Decimal
-    self_consumption_share_pct: Decimal
     source_type: str
     created_at: datetime
 
@@ -23,10 +19,6 @@ class DailyConsumptionCreate(BaseModel):
     customer_id: int
     consumption_date: date
     consumption_kwh: Decimal
-    grid_import_kwh: Decimal
-    grid_export_kwh: Decimal
-    pv_generation_kwh: Decimal
-    self_consumption_share_pct: Decimal
     source_type: str = "simulated"
 
 
