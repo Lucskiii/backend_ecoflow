@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.tables import CoreDailyConsumption
@@ -26,11 +27,24 @@ class ConsumptionRepository:
         )
         return self.db.scalar(statement) is not None
 
+    def _is_duplicate_key_error(self, exc: IntegrityError) -> bool:
+        message = str(getattr(exc, "orig", exc)).lower()
+        duplicate_markers = ("duplicate", "unique", "uq_daily_consumption_customer_date")
+        return any(marker in message for marker in duplicate_markers)
+
     def bulk_insert(self, rows: list[CoreDailyConsumption]) -> int:
         if not rows:
             return 0
+
         self.db.add_all(rows)
-        self.db.commit()
+        try:
+            self.db.commit()
+        except IntegrityError as exc:
+            self.db.rollback()
+            if self._is_duplicate_key_error(exc):
+                return 0
+            raise
+
         return len(rows)
 
     def list_by_customer_and_range(

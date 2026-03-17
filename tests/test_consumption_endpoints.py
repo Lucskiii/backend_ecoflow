@@ -2,9 +2,11 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import IntegrityError
 
 from app.main import app
 from app.models.tables import CoreDailyConsumption
+from app.repositories.consumption_repository import ConsumptionRepository
 from app.services.consumption_simulation_service import ConsumptionSimulationService
 
 
@@ -119,3 +121,34 @@ def test_get_daily_endpoint_returns_generated_data() -> None:
     finally:
         ConsumptionSimulationService.ensure_customer_consumption_data = original_ensure
         ConsumptionSimulationService.list_consumption = original_list
+
+
+class _DuplicateCommitSession:
+    def __init__(self) -> None:
+        self.rolled_back = False
+
+    def add_all(self, rows) -> None:  # noqa: ANN001
+        return None
+
+    def commit(self) -> None:
+        raise IntegrityError("INSERT", {}, Exception("Duplicate entry for key uq_daily_consumption_customer_date"))
+
+    def rollback(self) -> None:
+        self.rolled_back = True
+
+
+def test_bulk_insert_duplicate_race_returns_zero() -> None:
+    repository = ConsumptionRepository(_DuplicateCommitSession())  # type: ignore[arg-type]
+    rows = [
+        CoreDailyConsumption(
+            customer_id=1,
+            consumption_date=date.today(),
+            consumption_kwh=Decimal("7.111"),
+            source_type="simulated",
+        )
+    ]
+
+    inserted = repository.bulk_insert(rows)
+
+    assert inserted == 0
+    assert repository.db.rolled_back is True
