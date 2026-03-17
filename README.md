@@ -47,6 +47,11 @@ tests/
    python -m uvicorn app.main:app --reload
    ```
 
+## CORS in development
+
+- The API enables FastAPI `CORSMiddleware` and allows requests from `http://localhost:4200` by default for local frontend development.
+- You can override allowed origins with the `CORS_ALLOW_ORIGINS` environment variable.
+
 ## Endpoints
 
 - `GET /health` - service health check

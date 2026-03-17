@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     market_price_scheduler_enabled: bool = Field(
         default=True, alias="MARKET_PRICE_SCHEDULER_ENABLED"
     )
+    cors_allow_origins: list[str] = Field(
+        default=["http://localhost:4200"], alias="CORS_ALLOW_ORIGINS"
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",
