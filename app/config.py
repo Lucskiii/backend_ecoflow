@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     app_name: str = "EcoFlow Backend"
     app_version: str = "0.1.0"
     database_url: str = Field(
-        default="mysql+pymysql://user:password@localhost:3306/energy_db",
+        default="mysql+pymysql://user:password@localhost:3306/ecoflow",
         alias="DATABASE_URL",
     )
     jwt_secret: str = Field(default="change-me-in-production", alias="JWT_SECRET")
