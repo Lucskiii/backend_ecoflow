@@ -93,11 +93,23 @@ class CoreDailyConsumption(Base):
     )
     consumption_date: Mapped[date] = mapped_column(Date, nullable=False)
     consumption_kwh: Mapped[Decimal] = mapped_column(Numeric(10, 3), nullable=False)
+    grid_import_kwh: Mapped[Decimal] = mapped_column(Numeric(10, 3), nullable=False)
+    grid_export_kwh: Mapped[Decimal] = mapped_column(Numeric(10, 3), nullable=False)
+    pv_generation_kwh: Mapped[Decimal] = mapped_column(Numeric(10, 3), nullable=False)
+    self_consumption_share_pct: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False)
     source_type: Mapped[str] = mapped_column(String(32), nullable=False, server_default="simulated")
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
 
     __table_args__ = (
         UniqueConstraint("customer_id", "consumption_date", name="uq_daily_consumption_customer_date"),
+        CheckConstraint("consumption_kwh >= 0", name="ck_daily_consumption_non_negative"),
+        CheckConstraint("grid_import_kwh >= 0", name="ck_daily_grid_import_non_negative"),
+        CheckConstraint("grid_export_kwh >= 0", name="ck_daily_grid_export_non_negative"),
+        CheckConstraint("pv_generation_kwh >= 0", name="ck_daily_pv_generation_non_negative"),
+        CheckConstraint(
+            "self_consumption_share_pct >= 0 AND self_consumption_share_pct <= 100",
+            name="ck_daily_self_consumption_share_pct_range",
+        ),
         Index("ix_daily_consumption_customer_date", "customer_id", "consumption_date"),
     )
 
