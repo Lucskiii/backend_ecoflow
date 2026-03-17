@@ -84,6 +84,24 @@ class Customer(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
 
 
+class CoreDailyConsumption(Base):
+    __tablename__ = "core_daily_consumption"
+
+    consumption_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    customer_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("core_customer.id", ondelete="CASCADE"), nullable=False
+    )
+    consumption_date: Mapped[date] = mapped_column(Date, nullable=False)
+    consumption_kwh: Mapped[Decimal] = mapped_column(Numeric(10, 3), nullable=False)
+    source_type: Mapped[str] = mapped_column(String(32), nullable=False, server_default="simulated")
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("customer_id", "consumption_date", name="uq_daily_consumption_customer_date"),
+        Index("ix_daily_consumption_customer_date", "customer_id", "consumption_date"),
+    )
+
+
 class Site(Base):
     __tablename__ = "core_site"
 

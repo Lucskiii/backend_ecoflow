@@ -16,6 +16,7 @@ from app.models.tables import (
     CoreContract,
     CoreDispatchExecution,
     CoreDispatchPlan,
+    CoreDailyConsumption,
     CoreDispatchStep,
     CoreGridEvent,
     CoreGridZone,
