@@ -15,6 +15,7 @@ from app.models.tables import CoreMeter, CoreQualityFlag, CoreTsMeterReading, Cu
 METER_TYPES = ("load", "grid_import", "grid_export", "pv_generation")
 INTERVAL_MINUTES = 15
 INTERVAL_SECONDS = INTERVAL_MINUTES * 60
+DEFAULT_SIMULATION_DAYS = 30
 
 
 logger = logging.getLogger(__name__)
@@ -81,23 +82,15 @@ class EnergyService:
 
         return by_role
 
-    def simulate_customer_data(self, customer: Customer, days: int = 30) -> SimulationResult:
-        end_ts = self._round_to_interval(datetime.now(timezone.utc))
-        start_ts = end_ts - timedelta(days=days)
-
-        quality_flag_id = self._get_or_create_quality_flag()
-        sites = self._get_or_create_sites(customer.id)
-
-        site_meters: dict[int, dict[str, CoreMeter]] = {site.id: self._get_or_create_meters(site) for site in sites}
-
-        meter_ids = [meter.id for meters in site_meters.values() for meter in meters.values()]
-        if meter_ids:
-            self.db.query(CoreTsMeterReading).filter(
-                CoreTsMeterReading.meter_id.in_(meter_ids),
-                CoreTsMeterReading.ts >= start_ts,
-                CoreTsMeterReading.ts < end_ts,
-            ).delete(synchronize_session=False)
-
+    def _build_readings_for_range(
+        self,
+        customer: Customer,
+        sites: list[Site],
+        site_meters: dict[int, dict[str, CoreMeter]],
+        quality_flag_id: int,
+        start_ts: datetime,
+        end_ts: datetime,
+    ) -> list[CoreTsMeterReading]:
         readings: list[CoreTsMeterReading] = []
         total_steps = int((end_ts - start_ts).total_seconds() // INTERVAL_SECONDS)
 
@@ -109,7 +102,7 @@ class EnergyService:
                 hour = ts.hour + ts.minute / 60
                 day_of_year = ts.timetuple().tm_yday
 
-                rng = random.Random(base_seed + step)
+                rng = random.Random(base_seed + int(ts.timestamp() // INTERVAL_SECONDS))
                 daily_factor = 0.95 + 0.1 * math.sin((2 * math.pi / 365) * day_of_year)
                 noise = rng.uniform(0.92, 1.08)
 
@@ -146,6 +139,33 @@ class EnergyService:
                             value=Decimal(f"{value:.6f}"),
                         )
                     )
+        return readings
+
+    def simulate_customer_data(self, customer: Customer, days: int = DEFAULT_SIMULATION_DAYS) -> SimulationResult:
+        end_ts = self._round_to_interval(datetime.now(timezone.utc))
+        start_ts = end_ts - timedelta(days=days)
+
+        quality_flag_id = self._get_or_create_quality_flag()
+        sites = self._get_or_create_sites(customer.id)
+
+        site_meters: dict[int, dict[str, CoreMeter]] = {site.id: self._get_or_create_meters(site) for site in sites}
+
+        meter_ids = [meter.id for meters in site_meters.values() for meter in meters.values()]
+        if meter_ids:
+            self.db.query(CoreTsMeterReading).filter(
+                CoreTsMeterReading.meter_id.in_(meter_ids),
+                CoreTsMeterReading.ts >= start_ts,
+                CoreTsMeterReading.ts < end_ts,
+            ).delete(synchronize_session=False)
+
+        readings = self._build_readings_for_range(
+            customer=customer,
+            sites=sites,
+            site_meters=site_meters,
+            quality_flag_id=quality_flag_id,
+            start_ts=start_ts,
+            end_ts=end_ts,
+        )
 
         self.db.bulk_save_objects(readings)
         self.db.commit()
@@ -153,6 +173,70 @@ class EnergyService:
         return SimulationResult(
             customer_id=customer.id,
             days=days,
+            sites_processed=len(sites),
+            readings_created=len(readings),
+            from_ts=start_ts,
+            to_ts=end_ts,
+        )
+
+
+    def _latest_complete_timestamp(self, customer_id: int) -> datetime | None:
+        rows = list(
+            self.db.execute(
+                select(CoreMeter.meter_role, func.max(CoreTsMeterReading.ts))
+                .join(CoreTsMeterReading, CoreTsMeterReading.meter_id == CoreMeter.id)
+                .join(Site, Site.id == CoreMeter.site_id)
+                .where(
+                    Site.customer_id == customer_id,
+                    CoreMeter.meter_role.in_(METER_TYPES),
+                )
+                .group_by(CoreMeter.meter_role)
+            )
+        )
+        latest_by_role = {meter_role: latest_ts for meter_role, latest_ts in rows if latest_ts is not None}
+        if len(latest_by_role) < len(METER_TYPES):
+            return None
+        return min(latest_by_role.values())
+
+    def backfill_customer_data_to_now(
+        self,
+        customer: Customer,
+        fallback_days: int = DEFAULT_SIMULATION_DAYS,
+    ) -> SimulationResult:
+        end_ts = self._round_to_interval(datetime.now(timezone.utc))
+        latest_complete_ts = self._latest_complete_timestamp(customer.id)
+        if latest_complete_ts is None:
+            return self.simulate_customer_data(customer, days=fallback_days)
+
+        start_ts = latest_complete_ts.astimezone(timezone.utc) + timedelta(seconds=INTERVAL_SECONDS)
+        if start_ts >= end_ts:
+            return SimulationResult(
+                customer_id=customer.id,
+                days=max(int((end_ts - latest_complete_ts.astimezone(timezone.utc)).total_seconds() // 86400), 0),
+                sites_processed=len(self._get_or_create_sites(customer.id)),
+                readings_created=0,
+                from_ts=start_ts,
+                to_ts=end_ts,
+            )
+
+        quality_flag_id = self._get_or_create_quality_flag()
+        sites = self._get_or_create_sites(customer.id)
+        site_meters = {site.id: self._get_or_create_meters(site) for site in sites}
+        readings = self._build_readings_for_range(
+            customer=customer,
+            sites=sites,
+            site_meters=site_meters,
+            quality_flag_id=quality_flag_id,
+            start_ts=start_ts,
+            end_ts=end_ts,
+        )
+        if readings:
+            self.db.bulk_save_objects(readings)
+        self.db.commit()
+
+        return SimulationResult(
+            customer_id=customer.id,
+            days=max(int(math.ceil((end_ts - start_ts).total_seconds() / 86400)), 0),
             sites_processed=len(sites),
             readings_created=len(readings),
             from_ts=start_ts,
