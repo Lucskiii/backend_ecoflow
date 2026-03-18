@@ -186,6 +186,8 @@ def login_customer(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password"
         )
 
+    EnergyService(db).backfill_customer_data_to_now(customer)
+
     token = create_access_token(str(customer.id))
     return TokenResponse(access_token=token)
 
