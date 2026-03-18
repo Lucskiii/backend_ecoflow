@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
-from sqlalchemy import func, tuple_, select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.tables import CoreMeter, CoreQualityFlag, CoreTsMeterReading, Customer, Site
@@ -180,42 +180,23 @@ class EnergyService:
         )
 
 
-    def _latest_complete_timestamp(self, site_meters: dict[int, dict[str, CoreMeter]]) -> datetime | None:
-        managed_meters = [meter for meters in site_meters.values() for meter in meters.values()]
-        if not managed_meters:
-            return None
-
-        meter_ids = [meter.id for meter in managed_meters]
+    def _latest_complete_timestamp(self, customer_id: int) -> datetime | None:
         rows = list(
             self.db.execute(
-                select(CoreTsMeterReading.meter_id, func.max(CoreTsMeterReading.ts))
-                .where(CoreTsMeterReading.meter_id.in_(meter_ids))
-                .group_by(CoreTsMeterReading.meter_id)
-            )
-        )
-        latest_by_meter_id = {meter_id: latest_ts for meter_id, latest_ts in rows if latest_ts is not None}
-        if len(latest_by_meter_id) < len(meter_ids):
-            return None
-        return min(latest_by_meter_id.values())
-
-    def _filter_existing_readings(self, readings: list[CoreTsMeterReading]) -> list[CoreTsMeterReading]:
-        if not readings:
-            return readings
-
-        existing_keys = set(
-            self.db.execute(
-                select(CoreTsMeterReading.meter_id, CoreTsMeterReading.ts).where(
-                    tuple_(CoreTsMeterReading.meter_id, CoreTsMeterReading.ts).in_(
-                        [(reading.meter_id, reading.ts) for reading in readings]
-                    )
+                select(CoreMeter.meter_role, func.max(CoreTsMeterReading.ts))
+                .join(CoreTsMeterReading, CoreTsMeterReading.meter_id == CoreMeter.id)
+                .join(Site, Site.id == CoreMeter.site_id)
+                .where(
+                    Site.customer_id == customer_id,
+                    CoreMeter.meter_role.in_(METER_TYPES),
                 )
+                .group_by(CoreMeter.meter_role)
             )
         )
-        return [
-            reading
-            for reading in readings
-            if (reading.meter_id, reading.ts) not in existing_keys
-        ]
+        latest_by_role = {meter_role: latest_ts for meter_role, latest_ts in rows if latest_ts is not None}
+        if len(latest_by_role) < len(METER_TYPES):
+            return None
+        return min(latest_by_role.values())
 
     def backfill_customer_data_to_now(
         self,
@@ -223,9 +204,7 @@ class EnergyService:
         fallback_days: int = DEFAULT_SIMULATION_DAYS,
     ) -> SimulationResult:
         end_ts = self._round_to_interval(datetime.now(timezone.utc))
-        sites = self._get_or_create_sites(customer.id)
-        site_meters = {site.id: self._get_or_create_meters(site) for site in sites}
-        latest_complete_ts = self._latest_complete_timestamp(site_meters)
+        latest_complete_ts = self._latest_complete_timestamp(customer.id)
         if latest_complete_ts is None:
             return self.simulate_customer_data(customer, days=fallback_days)
 
@@ -234,13 +213,15 @@ class EnergyService:
             return SimulationResult(
                 customer_id=customer.id,
                 days=max(int((end_ts - latest_complete_ts.astimezone(timezone.utc)).total_seconds() // 86400), 0),
-                sites_processed=len(sites),
+                sites_processed=len(self._get_or_create_sites(customer.id)),
                 readings_created=0,
                 from_ts=start_ts,
                 to_ts=end_ts,
             )
 
         quality_flag_id = self._get_or_create_quality_flag()
+        sites = self._get_or_create_sites(customer.id)
+        site_meters = {site.id: self._get_or_create_meters(site) for site in sites}
         readings = self._build_readings_for_range(
             customer=customer,
             sites=sites,
@@ -249,7 +230,6 @@ class EnergyService:
             start_ts=start_ts,
             end_ts=end_ts,
         )
-        readings = self._filter_existing_readings(readings)
         if readings:
             self.db.bulk_save_objects(readings)
         self.db.commit()
