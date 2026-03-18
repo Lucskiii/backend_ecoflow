@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
+from sqlalchemy.pool import StaticPool
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.database import Base, get_db
@@ -10,7 +11,7 @@ from app.models.tables import CoreMeter, CoreTsMeterReading, Site
 
 
 def _setup_test_db() -> sessionmaker[Session]:
-    engine = create_engine("sqlite+pysqlite:///:memory:")
+    engine = create_engine("sqlite+pysqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     testing_session_local = sessionmaker(bind=engine, autocommit=False, autoflush=False, class_=Session)
     Base.metadata.create_all(bind=engine)
     return testing_session_local
@@ -154,5 +155,61 @@ def test_timeseries_rejects_naive_datetime_inputs() -> None:
     )
     assert response.status_code == 400
     assert response.json()["detail"] == "from must include timezone information"
+
+    app.dependency_overrides.clear()
+
+
+def test_login_backfills_missing_energy_intervals() -> None:
+    testing_session_local = _setup_test_db()
+
+    def override_get_db():
+        db = testing_session_local()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+    client = TestClient(app)
+
+    register_response = client.post(
+        "/api/auth/register",
+        json={"name": "Customer Backfill", "email": "backfill@example.com", "password": "secret123"},
+    )
+    assert register_response.status_code == 201
+
+    first_login = client.post("/api/auth/login", json={"email": "backfill@example.com", "password": "secret123"})
+    assert first_login.status_code == 200
+
+    db = testing_session_local()
+    try:
+        latest_ts = db.query(CoreTsMeterReading.ts).order_by(CoreTsMeterReading.ts.desc()).first()
+        assert latest_ts is not None
+        cutoff_ts = latest_ts[0] - timedelta(minutes=45)
+
+        db.query(CoreTsMeterReading).filter(CoreTsMeterReading.ts > cutoff_ts).delete(synchronize_session=False)
+        db.commit()
+
+        remaining_latest = db.query(CoreTsMeterReading.ts).order_by(CoreTsMeterReading.ts.desc()).first()
+        assert remaining_latest is not None
+        assert remaining_latest[0] == cutoff_ts
+    finally:
+        db.close()
+
+    second_login = client.post("/api/auth/login", json={"email": "backfill@example.com", "password": "secret123"})
+    assert second_login.status_code == 200
+
+    db = testing_session_local()
+    try:
+        latest_after_backfill = db.query(CoreTsMeterReading.ts).order_by(CoreTsMeterReading.ts.desc()).first()
+        assert latest_after_backfill is not None
+        assert latest_after_backfill[0] > cutoff_ts
+
+        role_count = db.query(CoreMeter.meter_role).distinct().count()
+        repaired_count = db.query(CoreTsMeterReading).filter(CoreTsMeterReading.ts > cutoff_ts).count()
+        assert role_count == 4
+        assert repaired_count >= 4 * 3
+    finally:
+        db.close()
 
     app.dependency_overrides.clear()
