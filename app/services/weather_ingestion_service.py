@@ -45,10 +45,10 @@ class WeatherIngestionService:
         sites = self.repository.list_sites_with_valid_coordinates()
         status_rows: list[dict] = []
         for site in sites:
-            weather_loc_id = self.repository.get_or_create_weather_location(
+            weather_loc_id = self.repository.find_weather_location_id(
                 site.site_id, site.latitude, site.longitude, self.PROVIDER
             )
-            latest = self.repository.get_latest_stored_timestamp(weather_loc_id)
+            latest = self.repository.get_latest_stored_timestamp(weather_loc_id) if weather_loc_id is not None else None
             status_rows.append(
                 {
                     "site_id": site.site_id,
@@ -165,24 +165,33 @@ class WeatherIngestionService:
     def _fetch_for_range(self, latitude: Decimal, longitude: Decimal, start_date: date, end_date: date) -> OpenMeteoResult:
         recent_cutoff = self._latest_available_date_utc() - timedelta(days=self.settings.weather_recent_days_window)
         if end_date >= recent_cutoff:
-            return self.client.fetch_recent_hourly(latitude, longitude, start_date, end_date)
+            result = self.client.fetch_recent_hourly(latitude, longitude, start_date, end_date)
+            latest_complete_hour = self._latest_complete_hour_utc()
+            result.points = [point for point in result.points if point.ts_utc <= latest_complete_hour]
+            return result
         return self.client.fetch_historical_hourly(latitude, longitude, start_date, end_date)
 
     def _build_observation_rows(self, weather_loc_id: int, ingestion_batch_id: int, result: OpenMeteoResult) -> list[dict]:
         rows: list[dict] = []
+        metrics = {
+            "temperature_2m": lambda point: point.temp_c,
+            "wind_speed_10m": lambda point: point.wind_ms,
+            "shortwave_radiation": lambda point: point.ghi_wm2,
+            "cloud_cover": lambda point: point.cloud_pct,
+        }
         for point in result.points:
-            rows.append(
-                {
-                    "weather_loc_id": weather_loc_id,
-                    "ts_utc": point.ts_utc,
-                    "temp_c": point.temp_c,
-                    "wind_ms": point.wind_ms,
-                    "ghi_wm2": point.ghi_wm2,
-                    "cloud_pct": point.cloud_pct,
-                    "quality_flag": self.QUALITY_FLAG,
-                    "ingestion_batch_id": ingestion_batch_id,
-                }
-            )
+            for metric, extractor in metrics.items():
+                value = extractor(point)
+                if value is None:
+                    continue
+                rows.append(
+                    {
+                        "weather_location_id": weather_loc_id,
+                        "ts": point.ts_utc,
+                        "metric": metric,
+                        "value": value,
+                    }
+                )
         return rows
 
     @staticmethod
@@ -196,3 +205,8 @@ class WeatherIngestionService:
     @staticmethod
     def _latest_available_date_utc() -> date:
         return datetime.now(timezone.utc).date()
+
+    @staticmethod
+    def _latest_complete_hour_utc() -> datetime:
+        now = datetime.now(timezone.utc)
+        return now.replace(minute=0, second=0, microsecond=0, tzinfo=None)
