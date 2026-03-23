@@ -28,6 +28,35 @@ class Settings(BaseSettings):
     market_price_scheduler_enabled: bool = Field(
         default=True, alias="MARKET_PRICE_SCHEDULER_ENABLED"
     )
+    open_meteo_historical_url: str = Field(
+        default="https://archive-api.open-meteo.com/v1/archive",
+        alias="OPEN_METEO_HISTORICAL_URL",
+    )
+    open_meteo_forecast_url: str = Field(
+        default="https://api.open-meteo.com/v1/forecast",
+        alias="OPEN_METEO_FORECAST_URL",
+    )
+    open_meteo_timeout_seconds: int = Field(
+        default=30, ge=1, alias="OPEN_METEO_TIMEOUT_SECONDS"
+    )
+    open_meteo_max_days_per_request: int = Field(
+        default=30, ge=1, alias="OPEN_METEO_MAX_DAYS_PER_REQUEST"
+    )
+    weather_default_backfill_days: int = Field(
+        default=365, ge=1, alias="WEATHER_DEFAULT_BACKFILL_DAYS"
+    )
+    weather_recent_days_window: int = Field(
+        default=5, ge=1, alias="WEATHER_RECENT_DAYS_WINDOW"
+    )
+    weather_scheduler_interval_minutes: int = Field(
+        default=60, ge=1, alias="WEATHER_SCHEDULER_INTERVAL_MINUTES"
+    )
+    weather_scheduler_enabled: bool = Field(
+        default=True, alias="WEATHER_SCHEDULER_ENABLED"
+    )
+    weather_store_raw_payload: bool = Field(
+        default=True, alias="WEATHER_STORE_RAW_PAYLOAD"
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",
