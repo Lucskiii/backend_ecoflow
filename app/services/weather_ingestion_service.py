@@ -165,7 +165,16 @@ class WeatherIngestionService:
     def _fetch_for_range(self, latitude: Decimal, longitude: Decimal, start_date: date, end_date: date) -> OpenMeteoResult:
         recent_cutoff = self._latest_available_date_utc() - timedelta(days=self.settings.weather_recent_days_window)
         if end_date >= recent_cutoff:
-            result = self.client.fetch_recent_hourly(latitude, longitude, start_date, end_date)
+            try:
+                result = self.client.fetch_recent_hourly(latitude, longitude, start_date, end_date)
+            except Exception as exc:
+                logger.warning(
+                    "Recent weather fetch failed for %s..%s, falling back to historical endpoint: %s",
+                    start_date,
+                    end_date,
+                    exc,
+                )
+                return self.client.fetch_historical_hourly(latitude, longitude, start_date, end_date)
             latest_complete_hour = self._latest_complete_hour_utc()
             range_start_utc = datetime.combine(start_date, datetime.min.time())
             range_end_utc = datetime.combine(end_date + timedelta(days=1), datetime.min.time())
