@@ -163,8 +163,12 @@ class WeatherIngestionService:
         return (latest.replace(tzinfo=timezone.utc) + timedelta(hours=1)).date(), resolved_end
 
     def _fetch_for_range(self, latitude: Decimal, longitude: Decimal, start_date: date, end_date: date) -> OpenMeteoResult:
-        recent_cutoff = self._latest_available_date_utc() - timedelta(days=self.settings.weather_recent_days_window)
-        if end_date >= recent_cutoff:
+        latest_available = self._latest_available_date_utc()
+        recent_cutoff = latest_available - timedelta(days=self.settings.weather_recent_days_window)
+        # The forecast endpoint is anchored to "today" via `past_days` and is therefore only
+        # safe when the requested interval also ends on the latest available date.
+        # For recent ranges that end before today, use historical to avoid edge-day gaps.
+        if end_date >= recent_cutoff and end_date >= latest_available:
             try:
                 result = self.client.fetch_recent_hourly(latitude, longitude, start_date, end_date)
             except Exception as exc:
@@ -183,6 +187,13 @@ class WeatherIngestionService:
                 for point in result.points
                 if range_start_utc <= point.ts_utc < range_end_utc and point.ts_utc <= latest_complete_hour
             ]
+            if not result.points:
+                logger.warning(
+                    "Recent weather fetch returned no usable points for %s..%s, falling back to historical endpoint",
+                    start_date,
+                    end_date,
+                )
+                return self.client.fetch_historical_hourly(latitude, longitude, start_date, end_date)
             return result
         return self.client.fetch_historical_hourly(latitude, longitude, start_date, end_date)
 
