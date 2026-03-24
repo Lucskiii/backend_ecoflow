@@ -167,7 +167,13 @@ class WeatherIngestionService:
         if end_date >= recent_cutoff:
             result = self.client.fetch_recent_hourly(latitude, longitude, start_date, end_date)
             latest_complete_hour = self._latest_complete_hour_utc()
-            result.points = [point for point in result.points if point.ts_utc <= latest_complete_hour]
+            range_start_utc = datetime.combine(start_date, datetime.min.time())
+            range_end_utc = datetime.combine(end_date + timedelta(days=1), datetime.min.time())
+            result.points = [
+                point
+                for point in result.points
+                if range_start_utc <= point.ts_utc < range_end_utc and point.ts_utc <= latest_complete_hour
+            ]
             return result
         return self.client.fetch_historical_hourly(latitude, longitude, start_date, end_date)
 
