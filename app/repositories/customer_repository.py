@@ -19,7 +19,15 @@ class CustomerRepository:
         return self.db.scalar(select(Customer).where(Customer.email == email))
 
     def create(self, payload: CustomerCreate, password_hash: str | None = None) -> Customer:
-        customer = Customer(name=payload.name, email=payload.email, password_hash=password_hash)
+        customer = Customer(
+            name=payload.name,
+            email=payload.email,
+            password_hash=password_hash,
+            address_line1=payload.address_line1,
+            city=payload.city,
+            postal_code=payload.postal_code,
+            country=payload.country,
+        )
         self.db.add(customer)
         self.db.commit()
         self.db.refresh(customer)
