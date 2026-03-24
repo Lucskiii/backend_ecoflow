@@ -19,7 +19,15 @@ def _setup_test_db() -> sessionmaker[Session]:
 def _register_and_login(client: TestClient, name: str, email: str) -> str:
     register_response = client.post(
         "/api/auth/register",
-        json={"name": name, "email": email, "password": "secret123"},
+        json={
+            "name": name,
+            "email": email,
+            "password": "secret123",
+            "address_line1": "Main Street 1",
+            "city": "Vienna",
+            "postal_code": "1010",
+            "country": "Austria",
+        },
     )
     assert register_response.status_code == 201
 

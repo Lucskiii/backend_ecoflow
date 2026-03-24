@@ -28,7 +28,15 @@ def test_register_login_and_me() -> None:
 
     register_response = client.post(
         "/api/auth/register",
-        json={"name": "Max Mustermann", "email": "max@example.com", "password": "secret123"},
+        json={
+            "name": "Max Mustermann",
+            "email": "max@example.com",
+            "password": "secret123",
+            "address_line1": "Musterstrasse 1",
+            "city": "Wien",
+            "postal_code": "1010",
+            "country": "Austria",
+        },
     )
     assert register_response.status_code == 201
     register_json = register_response.json()
@@ -64,7 +72,15 @@ def test_register_login_and_me() -> None:
 
     second_customer_response = client.post(
         "/api/auth/register",
-        json={"name": "Erika Musterfrau", "email": "erika@example.com", "password": "secret123"},
+        json={
+            "name": "Erika Musterfrau",
+            "email": "erika@example.com",
+            "password": "secret123",
+            "address_line1": "Ring 2",
+            "city": "Wien",
+            "postal_code": "1010",
+            "country": "Austria",
+        },
     )
     assert second_customer_response.status_code == 201
 
