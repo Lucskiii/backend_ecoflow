@@ -1,11 +1,15 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
 
 class CustomerBase(BaseModel):
     name: str = Field(min_length=1)
     email: EmailStr
+    address_line1: str | None = Field(default=None, min_length=3)
+    city: str | None = Field(default=None, min_length=2)
+    postal_code: str | None = Field(default=None, min_length=2)
+    country: str | None = Field(default=None, min_length=2)
 
 
 class CustomerCreate(CustomerBase):
@@ -14,6 +18,14 @@ class CustomerCreate(CustomerBase):
 
 class CustomerRegister(CustomerBase):
     password: str = Field(min_length=8)
+
+    @model_validator(mode="after")
+    def validate_address_fields(self) -> "CustomerRegister":
+        required_fields = ("address_line1", "city", "postal_code", "country")
+        missing = [field for field in required_fields if not getattr(self, field)]
+        if missing:
+            raise ValueError("Address is required for registration")
+        return self
 
 
 class CustomerLogin(BaseModel):
