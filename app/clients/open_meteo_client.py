@@ -87,6 +87,10 @@ class OpenMeteoClient:
             raise RuntimeError(f"Open-Meteo request failed: {exc}") from exc
 
         payload = response.json()
+        if payload.get("error"):
+            reason = payload.get("reason") or "unknown provider error"
+            logger.warning("Open-Meteo returned error payload url=%s params=%s reason=%s", base_url, params, reason)
+            raise RuntimeError(f"Open-Meteo error response: {reason}")
         hourly = payload.get("hourly") or {}
         times = hourly.get("time") or []
         temperatures = hourly.get("temperature_2m") or []
