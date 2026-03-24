@@ -51,7 +51,7 @@ class OpenMeteoClient:
     def fetch_recent_hourly(
         self, latitude: Decimal | float, longitude: Decimal | float, start_date: date, end_date: date
     ) -> OpenMeteoResult:
-        params = self._build_params(latitude, longitude, start_date, end_date)
+        params = self._build_recent_params(latitude, longitude)
         delta_days = max((end_date - start_date).days + 1, 1)
         params["past_days"] = delta_days
         return self._request(self.settings.open_meteo_forecast_url, params)
@@ -65,6 +65,15 @@ class OpenMeteoClient:
             "hourly": ",".join(self.HOURLY_VARIABLES),
             "start_date": start_date.isoformat(),
             "end_date": end_date.isoformat(),
+            "timezone": "UTC",
+            "wind_speed_unit": "ms",
+        }
+
+    def _build_recent_params(self, latitude: Decimal | float, longitude: Decimal | float) -> dict[str, Any]:
+        return {
+            "latitude": float(latitude),
+            "longitude": float(longitude),
+            "hourly": ",".join(self.HOURLY_VARIABLES),
             "timezone": "UTC",
             "wind_speed_unit": "ms",
         }
