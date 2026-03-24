@@ -1,7 +1,7 @@
 """add customer address and coordinate fields
 
 Revision ID: 0002_customer_address_coordinates
-Revises: 0002_add_customer_password_hash
+Revises: 0003_add_core_daily_consumption
 Create Date: 2026-03-24 00:00:00.000000
 """
 
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "0002_customer_address_coordinates"
-down_revision = "0002_add_customer_password_hash"
+down_revision = "0003_add_core_daily_consumption"
 branch_labels = None
 depends_on = None
 
