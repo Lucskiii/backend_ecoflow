@@ -40,6 +40,32 @@ class FakeClient:
         )
 
 
+class FailingRecentClient(FakeClient):
+    def fetch_recent_hourly(self, latitude, longitude, start_date, end_date):
+        self.calls.append(("recent", start_date, end_date))
+        raise RuntimeError("recent endpoint failed")
+
+
+class EmptyRecentClient(FakeClient):
+    def fetch_recent_hourly(self, latitude, longitude, start_date, end_date):
+        self.calls.append(("recent", start_date, end_date))
+        from app.clients.open_meteo_client import OpenMeteoHourlyPoint, OpenMeteoResult
+
+        out_of_range_point = OpenMeteoHourlyPoint(
+            ts_utc=datetime.combine(end_date, datetime.max.time()),
+            temp_c=Decimal("12.5"),
+            wind_ms=Decimal("5.1"),
+            ghi_wm2=Decimal("100.0"),
+            cloud_pct=Decimal("42.0"),
+        )
+        return OpenMeteoResult(
+            source_url="https://example.test/weather",
+            model_name="test-model",
+            points=[out_of_range_point],
+            raw_payload={"hourly": {"time": [end_date.isoformat()]}},
+        )
+
+
 def _setup_test_db() -> sessionmaker[Session]:
     engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
     with engine.begin() as conn:
@@ -108,3 +134,46 @@ def test_get_status_does_not_create_missing_weather_locations() -> None:
 
     assert status["sites"][0]["weather_loc_id"] is None
     assert location_count == 0
+
+
+def test_recent_fetch_falls_back_to_historical_on_recent_error() -> None:
+    session_local = _setup_test_db()
+    client = FailingRecentClient()
+    with session_local() as db:
+        service = WeatherIngestionService(db, client=client)
+        service._latest_available_date_utc = lambda: date(2024, 1, 2)  # type: ignore[method-assign]
+        result = service._fetch_for_range(Decimal("48.2"), Decimal("16.37"), date(2024, 1, 2), date(2024, 1, 2))
+
+    assert client.calls == [
+        ("recent", date(2024, 1, 2), date(2024, 1, 2)),
+        ("historical", date(2024, 1, 2), date(2024, 1, 2)),
+    ]
+    assert len(result.points) == 1
+
+
+def test_recent_fetch_falls_back_to_historical_when_recent_points_are_empty_after_filter() -> None:
+    session_local = _setup_test_db()
+    client = EmptyRecentClient()
+    with session_local() as db:
+        service = WeatherIngestionService(db, client=client)
+        service._latest_available_date_utc = lambda: date(2024, 1, 2)  # type: ignore[method-assign]
+        service._latest_complete_hour_utc = lambda: datetime(2024, 1, 2, 10, 0, 0)  # type: ignore[method-assign]
+        result = service._fetch_for_range(Decimal("48.2"), Decimal("16.37"), date(2024, 1, 2), date(2024, 1, 2))
+
+    assert client.calls == [
+        ("recent", date(2024, 1, 2), date(2024, 1, 2)),
+        ("historical", date(2024, 1, 2), date(2024, 1, 2)),
+    ]
+    assert len(result.points) == 1
+
+
+def test_ranges_ending_before_today_use_historical_to_avoid_recent_anchor_gaps() -> None:
+    session_local = _setup_test_db()
+    client = FakeClient()
+    with session_local() as db:
+        service = WeatherIngestionService(db, client=client)
+        service._latest_available_date_utc = lambda: date(2024, 1, 4)  # type: ignore[method-assign]
+        result = service._fetch_for_range(Decimal("48.2"), Decimal("16.37"), date(2024, 1, 2), date(2024, 1, 3))
+
+    assert client.calls == [("historical", date(2024, 1, 2), date(2024, 1, 3))]
+    assert len(result.points) == 1

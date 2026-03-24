@@ -51,7 +51,7 @@ class OpenMeteoClient:
     def fetch_recent_hourly(
         self, latitude: Decimal | float, longitude: Decimal | float, start_date: date, end_date: date
     ) -> OpenMeteoResult:
-        params = self._build_params(latitude, longitude, start_date, end_date)
+        params = self._build_recent_params(latitude, longitude)
         delta_days = max((end_date - start_date).days + 1, 1)
         params["past_days"] = delta_days
         return self._request(self.settings.open_meteo_forecast_url, params)
@@ -69,6 +69,15 @@ class OpenMeteoClient:
             "wind_speed_unit": "ms",
         }
 
+    def _build_recent_params(self, latitude: Decimal | float, longitude: Decimal | float) -> dict[str, Any]:
+        return {
+            "latitude": float(latitude),
+            "longitude": float(longitude),
+            "hourly": ",".join(self.HOURLY_VARIABLES),
+            "timezone": "UTC",
+            "wind_speed_unit": "ms",
+        }
+
     def _request(self, base_url: str, params: dict[str, Any]) -> OpenMeteoResult:
         try:
             response = self._session.get(base_url, params=params, timeout=self.settings.open_meteo_timeout_seconds)
@@ -78,6 +87,10 @@ class OpenMeteoClient:
             raise RuntimeError(f"Open-Meteo request failed: {exc}") from exc
 
         payload = response.json()
+        if payload.get("error"):
+            reason = payload.get("reason") or "unknown provider error"
+            logger.warning("Open-Meteo returned error payload url=%s params=%s reason=%s", base_url, params, reason)
+            raise RuntimeError(f"Open-Meteo error response: {reason}")
         hourly = payload.get("hourly") or {}
         times = hourly.get("time") or []
         temperatures = hourly.get("temperature_2m") or []
