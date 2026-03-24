@@ -62,6 +62,7 @@ tests/
 - The database is managed via Alembic migrations only (no `Base.metadata.create_all()` in app startup).
 - Logical layers are represented as MySQL table prefixes: `raw_`, `core_`, and `bi_`.
 - Run `python -m alembic upgrade head` to create all tables, constraints, and indexes in MySQL 8.
+- After pulling new backend changes, run `python -m alembic upgrade head` before startup so new columns (e.g. customer address/geocoordinates) exist.
 - Configure your connection in `.env` using `DATABASE_URL` (example provided in `.env.example`).
 
 
