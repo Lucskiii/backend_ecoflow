@@ -62,6 +62,7 @@ tests/
 - The database is managed via Alembic migrations only (no `Base.metadata.create_all()` in app startup).
 - Logical layers are represented as MySQL table prefixes: `raw_`, `core_`, and `bi_`.
 - Run `python -m alembic upgrade head` to create all tables, constraints, and indexes in MySQL 8.
+- After pulling new backend changes, run `python -m alembic upgrade head` before startup so new columns (e.g. customer address/geocoordinates) exist.
 - Configure your connection in `.env` using `DATABASE_URL` (example provided in `.env.example`).
 
 
@@ -75,6 +76,7 @@ tests/
 ### Weather scheduler
 
 - The weather scheduler runs in a background thread on API startup and checks each coordinate-bearing site for missing hourly data.
+- On startup, customer addresses are geocoded and used to backfill missing `core_site.latitude/longitude` values for existing sites.
 - Configure the behavior with:
   - `WEATHER_SCHEDULER_ENABLED`
   - `WEATHER_SCHEDULER_INTERVAL_MINUTES`
@@ -82,6 +84,7 @@ tests/
   - `WEATHER_RECENT_DAYS_WINDOW`
   - `OPEN_METEO_HISTORICAL_URL`
   - `OPEN_METEO_FORECAST_URL`
+  - `OPEN_METEO_GEOCODING_URL`
 - The scheduler is non-blocking and skips duplicate thread startup when the app reloads.
 
 ### Manual weather operations
