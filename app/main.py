@@ -9,6 +9,7 @@ from app.api.weather import router as weather_router
 from app.config import get_settings
 from app.database import SessionLocal
 from app.services.energy_service import EnergyService
+from app.services.customer_site_coordinate_service import CustomerSiteCoordinateService
 from app.scheduler.weather_scheduler import WeatherScheduler
 from app.services.market_price_scheduler import MarketPriceScheduler
 
@@ -51,6 +52,15 @@ app.include_router(weather_router)
 @app.on_event("startup")
 def start_market_price_scheduler() -> None:
     market_price_scheduler.start()
+
+
+@app.on_event("startup")
+def backfill_customer_site_coordinates() -> None:
+    db = SessionLocal()
+    try:
+        CustomerSiteCoordinateService(db).backfill_missing_site_coordinates()
+    finally:
+        db.close()
 
 
 @app.on_event("shutdown")

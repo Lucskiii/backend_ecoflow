@@ -36,6 +36,10 @@ class Settings(BaseSettings):
         default="https://api.open-meteo.com/v1/forecast",
         alias="OPEN_METEO_FORECAST_URL",
     )
+    open_meteo_geocoding_url: str = Field(
+        default="https://geocoding-api.open-meteo.com/v1/search",
+        alias="OPEN_METEO_GEOCODING_URL",
+    )
     open_meteo_timeout_seconds: int = Field(
         default=30, ge=1, alias="OPEN_METEO_TIMEOUT_SECONDS"
     )

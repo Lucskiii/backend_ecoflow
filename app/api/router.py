@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -32,11 +33,13 @@ from app.security import (
     verify_password,
 )
 from app.services.energy_service import EnergyService
+from app.services.geocoding_service import GeocodingService
 from app.services.market_price_service import MarketPriceService
 from app.services.portfolio_service import PortfolioService
 
 router = APIRouter(prefix="/api", tags=["customers"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+logger = logging.getLogger(__name__)
 
 
 def _get_current_customer(
@@ -166,6 +169,20 @@ def register_customer(
         )
 
     customer = repository.create(payload, password_hash=hash_password(payload.password))
+    try:
+        geocode = GeocodingService().geocode_address(
+            address_line1=payload.address_line1,
+            city=payload.city,
+            postal_code=payload.postal_code,
+            country=payload.country,
+        )
+    except Exception as exc:
+        logger.warning("Geocoding failed for customer id=%s during registration: %s", customer.id, exc)
+    else:
+        customer.latitude = geocode.latitude
+        customer.longitude = geocode.longitude
+        db.commit()
+        db.refresh(customer)
     token = create_access_token(str(customer.id))
     return AuthenticatedCustomer(customer=customer, access_token=token)
 
