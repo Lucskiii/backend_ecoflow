@@ -75,6 +75,7 @@ tests/
 ### Weather scheduler
 
 - The weather scheduler runs in a background thread on API startup and checks each coordinate-bearing site for missing hourly data.
+- On startup, customer addresses are geocoded and used to backfill missing `core_site.latitude/longitude` values for existing sites.
 - Configure the behavior with:
   - `WEATHER_SCHEDULER_ENABLED`
   - `WEATHER_SCHEDULER_INTERVAL_MINUTES`
@@ -82,6 +83,7 @@ tests/
   - `WEATHER_RECENT_DAYS_WINDOW`
   - `OPEN_METEO_HISTORICAL_URL`
   - `OPEN_METEO_FORECAST_URL`
+  - `OPEN_METEO_GEOCODING_URL`
 - The scheduler is non-blocking and skips duplicate thread startup when the app reloads.
 
 ### Manual weather operations
