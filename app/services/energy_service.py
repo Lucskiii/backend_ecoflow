@@ -13,7 +13,7 @@ from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
-from app.models.tables import CoreMeter, CoreQualityFlag, CoreTsMeterReading, Customer, Site
+from app.models.tables import CoreMeter, CoreQualityFlag, CoreTsMeterReading, Site
 
 METER_TYPES = ("load", "grid_import", "grid_export", "pv_generation")
 INTERVAL_MINUTES = 15
@@ -56,14 +56,13 @@ class EnergyService:
         if sites:
             return sites
 
-        customer = self.db.get(Customer, customer_id)
         site = Site(
             customer_id=customer_id,
             site_code=f"cust-{customer_id}-site-1",
             name=f"Default Site Customer {customer_id}",
             timezone="UTC",
-            latitude=customer.latitude if customer is not None else None,
-            longitude=customer.longitude if customer is not None else None,
+            latitude=None,
+            longitude=None,
         )
         self.db.add(site)
         self.db.flush()

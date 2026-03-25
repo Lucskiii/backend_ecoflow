@@ -4,10 +4,12 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.security import OAuth2PasswordBearer
 from jwt import InvalidTokenError
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.repositories.customer_repository import CustomerRepository
+from app.models.tables import Site
 from app.schemas.customer import (
     AuthenticatedCustomer,
     CustomerCreate,
@@ -168,21 +170,36 @@ def register_customer(
             status_code=status.HTTP_409_CONFLICT, detail="Email already registered"
         )
 
-    customer = repository.create(payload, password_hash=hash_password(payload.password))
     try:
-        geocode = GeocodingService().geocode_address(
+        geocode = GeocodingService(db).geocode_address(
             address_line1=payload.address_line1,
             city=payload.city,
             postal_code=payload.postal_code,
             country=payload.country,
         )
     except Exception as exc:
-        logger.warning("Geocoding failed for customer id=%s during registration: %s", customer.id, exc)
-    else:
-        customer.latitude = geocode.latitude
-        customer.longitude = geocode.longitude
-        db.commit()
-        db.refresh(customer)
+        logger.warning("Geocoding failed during registration for email=%s: %s", payload.email, exc)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Address could not be geocoded",
+        ) from exc
+
+    customer = repository.create(payload, password_hash=hash_password(payload.password))
+    site_id = None
+    if db.get_bind().dialect.name == "sqlite":
+        site_id = int(db.scalar(select(func.coalesce(func.max(Site.id), 0) + 1)) or 1)
+    site = Site(
+        id=site_id,
+        customer_id=customer.id,
+        site_code=f"cust-{customer.id}-site-1",
+        name=f"Default Site Customer {customer.id}",
+        timezone="UTC",
+        latitude=geocode.latitude,
+        longitude=geocode.longitude,
+    )
+    db.add(site)
+    db.commit()
+    db.refresh(customer)
     token = create_access_token(str(customer.id))
     return AuthenticatedCustomer(customer=customer, access_token=token)
 
