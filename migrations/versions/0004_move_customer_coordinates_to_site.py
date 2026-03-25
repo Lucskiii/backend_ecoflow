@@ -1,6 +1,6 @@
 """move customer coordinates to site
 
-Revision ID: 0004_move_customer_coordinates_to_site
+Revision ID: 0004_move_customer_coords
 Revises: 0002_customer_address_coords
 Create Date: 2026-03-25 00:00:00.000000
 """
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = "0004_move_customer_coordinates_to_site"
+revision = "0004_move_customer_coords"
 down_revision = "0002_customer_address_coords"
 branch_labels = None
 depends_on = None
