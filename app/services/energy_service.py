@@ -326,7 +326,9 @@ class EnergyService:
         )
 
     def ensure_demo_energy_data_for_all_customers(self, days: int = 30) -> None:
-        customers = list(self.db.scalars(select(Customer).order_by(Customer.id)))
+        from app.models.customer import Customer as CustomerModel
+
+        customers = list(self.db.scalars(select(CustomerModel).order_by(CustomerModel.id)))
         logger.info("Auto energy simulation: found %s customer(s)", len(customers))
 
         for customer in customers:
