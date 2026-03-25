@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.customer import Customer
@@ -19,7 +19,11 @@ class CustomerRepository:
         return self.db.scalar(select(Customer).where(Customer.email == email))
 
     def create(self, payload: CustomerCreate, password_hash: str | None = None) -> Customer:
+        customer_id = None
+        if self.db.get_bind().dialect.name == "sqlite":
+            customer_id = int(self.db.scalar(select(func.coalesce(func.max(Customer.id), 0) + 1)) or 1)
         customer = Customer(
+            id=customer_id,
             name=payload.name,
             email=payload.email,
             password_hash=password_hash,

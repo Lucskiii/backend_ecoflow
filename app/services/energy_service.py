@@ -56,14 +56,13 @@ class EnergyService:
         if sites:
             return sites
 
-        customer = self.db.get(Customer, customer_id)
         site = Site(
             customer_id=customer_id,
             site_code=f"cust-{customer_id}-site-1",
             name=f"Default Site Customer {customer_id}",
             timezone="UTC",
-            latitude=customer.latitude if customer is not None else None,
-            longitude=customer.longitude if customer is not None else None,
+            latitude=None,
+            longitude=None,
         )
         self.db.add(site)
         self.db.flush()
@@ -327,7 +326,9 @@ class EnergyService:
         )
 
     def ensure_demo_energy_data_for_all_customers(self, days: int = 30) -> None:
-        customers = list(self.db.scalars(select(Customer).order_by(Customer.id)))
+        from app.models.customer import Customer as CustomerModel
+
+        customers = list(self.db.scalars(select(CustomerModel).order_by(CustomerModel.id)))
         logger.info("Auto energy simulation: found %s customer(s)", len(customers))
 
         for customer in customers:

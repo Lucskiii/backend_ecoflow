@@ -33,20 +33,17 @@ class CustomerSiteCoordinateService:
         sites_updated = 0
 
         for customer in customers:
-            if customer.latitude is None or customer.longitude is None:
-                try:
-                    geocode = self.geocoding_service.geocode_address(
-                        address_line1=customer.address_line1 or "",
-                        city=customer.city or "",
-                        postal_code=customer.postal_code or "",
-                        country=customer.country or "",
-                    )
-                except Exception as exc:
-                    logger.warning("Failed to geocode customer id=%s: %s", customer.id, exc)
-                    continue
-                customer.latitude = geocode.latitude
-                customer.longitude = geocode.longitude
-                customers_geocoded += 1
+            try:
+                geocode = self.geocoding_service.geocode_address(
+                    address_line1=customer.address_line1 or "",
+                    city=customer.city or "",
+                    postal_code=customer.postal_code or "",
+                    country=customer.country or "",
+                )
+            except Exception as exc:
+                logger.warning("Failed to geocode customer id=%s: %s", customer.id, exc)
+                continue
+            customers_geocoded += 1
 
             sites = list(
                 self.db.scalars(
@@ -58,8 +55,8 @@ class CustomerSiteCoordinateService:
                 )
             )
             for site in sites:
-                site.latitude = customer.latitude
-                site.longitude = customer.longitude
+                site.latitude = geocode.latitude
+                site.longitude = geocode.longitude
                 sites_updated += 1
 
         self.db.commit()
