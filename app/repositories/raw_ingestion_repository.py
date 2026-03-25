@@ -41,6 +41,33 @@ class RawIngestionRepository:
         )
         return batch_id
 
+
+    def create_batch_entry(
+        self,
+        *,
+        source_system: str,
+        source_topic: str | None,
+        payload_format: str = "json",
+        notes: str | None = None,
+        source_uri: str | None = None,
+    ) -> int:
+        values: dict[str, Any] = {"source_system": source_system}
+        if "source_topic" in self.batch_table.c:
+            values["source_topic"] = source_topic
+        if "payload_format" in self.batch_table.c:
+            values["payload_format"] = payload_format
+        if "source_uri" in self.batch_table.c:
+            values["source_uri"] = source_uri
+        if "notes" in self.batch_table.c:
+            values["notes"] = notes
+        if "status" in self.batch_table.c:
+            values["status"] = "received"
+        if self.db.get_bind().dialect.name == "sqlite" and "id" in self.batch_table.c:
+            next_id = self.db.execute(select(func.coalesce(func.max(self.batch_table.c["id"]), 0) + 1)).scalar_one()
+            values["id"] = int(next_id)
+        result = self.db.execute(insert(self.batch_table).values(**values))
+        return int(result.inserted_primary_key[0])
+
     def _create_batch(
         self,
         *,

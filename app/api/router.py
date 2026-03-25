@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.security import OAuth2PasswordBearer
@@ -7,6 +7,7 @@ from jwt import InvalidTokenError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.config import get_settings
 from app.database import get_db
 from app.repositories.customer_repository import CustomerRepository
 from app.models.tables import Site
@@ -27,7 +28,11 @@ from app.schemas.energy import (
     PortfolioSummaryResponse,
     PortfolioTimeseriesResponse,
 )
-from app.schemas.market import MarketPriceRefreshResponse, MarketPriceTimeseriesResponse
+from app.schemas.market import (
+    MarketPriceBackfillResponse,
+    MarketPriceRefreshResponse,
+    MarketPriceTimeseriesResponse,
+)
 from app.security import (
     create_access_token,
     decode_access_token,
@@ -36,12 +41,14 @@ from app.security import (
 )
 from app.services.energy_service import EnergyService
 from app.services.geocoding_service import GeocodingService
+from app.services.market_price_backfill_service import MarketPriceBackfillService
 from app.services.market_price_service import MarketPriceService
 from app.services.portfolio_service import PortfolioService
 
 router = APIRouter(prefix="/api", tags=["customers"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 logger = logging.getLogger(__name__)
+settings = get_settings()
 
 
 def _get_current_customer(
@@ -383,3 +390,39 @@ def get_latest_market_prices(
 def refresh_market_prices(db: Session = Depends(get_db)) -> MarketPriceRefreshResponse:
     inserted = MarketPriceService(db).refresh_prices()
     return MarketPriceRefreshResponse(inserted=inserted)
+
+
+@router.post("/market/backfill/historical", response_model=MarketPriceBackfillResponse)
+def backfill_historical_market_prices(
+    target_start_date: date | None = Query(default=None),
+    manual_run: bool = Query(default=False),
+    db: Session = Depends(get_db),
+) -> MarketPriceBackfillResponse:
+    if not settings.market_price_backfill_manual_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Market price historical backfill is disabled by configuration.",
+        )
+
+    if not manual_run:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This is a manual one-time operation. Set manual_run=true to execute.",
+        )
+
+    effective_start_date = target_start_date or date.fromisoformat(
+        settings.market_price_backfill_default_start_date
+    )
+
+    summary = MarketPriceBackfillService(db).run_historical_backfill(
+        target_start_date=effective_start_date
+    )
+    return MarketPriceBackfillResponse(
+        processed_products=summary.processed_products,
+        inserted_rows=summary.inserted_rows,
+        skipped_products=summary.skipped_products,
+        failed_products=summary.failed_products,
+        target_start_date=summary.target_start_date,
+        earliest_observed_ts=summary.earliest_observed_ts,
+        latest_backfilled_ts=summary.latest_backfilled_ts,
+    )
