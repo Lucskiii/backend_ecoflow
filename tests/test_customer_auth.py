@@ -1,13 +1,17 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from fastapi.testclient import TestClient
+from decimal import Decimal
+from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_db
 from app.main import app
+from app.services.geocoding_service import GeocodeResult, GeocodingService
+from app.services.energy_service import EnergyService
 
 
 def _setup_test_db() -> sessionmaker[Session]:
-    engine = create_engine("sqlite+pysqlite:///:memory:")
+    engine = create_engine("sqlite+pysqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     TestingSessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False, class_=Session)
     Base.metadata.create_all(bind=engine)
     return TestingSessionLocal
@@ -24,6 +28,14 @@ def test_register_login_and_me() -> None:
             db.close()
 
     app.dependency_overrides[get_db] = override_get_db
+    original_geocode = GeocodingService.geocode_address
+    original_backfill = EnergyService.backfill_customer_data_to_now
+
+    def _fake_geocode_address(self, *, address_line1: str, city: str, postal_code: str, country: str) -> GeocodeResult:
+        return GeocodeResult(latitude=Decimal("48.208200"), longitude=Decimal("16.373800"))
+
+    GeocodingService.geocode_address = _fake_geocode_address
+    EnergyService.backfill_customer_data_to_now = lambda self, customer, days=None: None  # type: ignore[method-assign]
     client = TestClient(app)
 
     register_response = client.post(
@@ -103,4 +115,6 @@ def test_register_login_and_me() -> None:
     unauthorized_me_response = client.get("/api/customers/me")
     assert unauthorized_me_response.status_code == 401
 
+    GeocodingService.geocode_address = original_geocode
+    EnergyService.backfill_customer_data_to_now = original_backfill
     app.dependency_overrides.clear()
