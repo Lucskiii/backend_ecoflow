@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import json
 from dataclasses import dataclass
 from datetime import datetime
@@ -11,6 +10,7 @@ from sqlalchemy import MetaData, Table, and_, func, insert, select
 from sqlalchemy.dialects.mysql import insert as mysql_insert
 from sqlalchemy.orm import Session
 
+from app.repositories.raw_ingestion_repository import RawIngestionRepository
 
 @dataclass(slots=True)
 class SiteCoordinate:
@@ -30,6 +30,7 @@ class WeatherRepository:
         self.batch_table = Table("raw_ingestion_batch", metadata, autoload_with=bind)
         self.raw_payload_table = Table("raw_raw_payload", metadata, autoload_with=bind)
         self.quality_flag_table = Table("core_quality_flag", metadata, autoload_with=bind)
+        self.raw_ingestion_repository = RawIngestionRepository(db)
 
         self.site_id_col = self._column(self.site_table, "site_id", "id")
         self.site_lat_col = self._column(self.site_table, "lat", "latitude")
@@ -146,32 +147,21 @@ class WeatherRepository:
         ).scalar_one_or_none()
 
     def create_ingestion_batch(self, source_uri: str | None, notes: str | None = None) -> int:
-        payload: dict[str, Any] = {"source_system": "open-meteo"}
-        if "payload_format" in self.batch_table.c:
-            payload["payload_format"] = "json"
-        if "source_uri" in self.batch_table.c:
-            payload["source_uri"] = source_uri
-        if "notes" in self.batch_table.c:
-            payload["notes"] = notes
-        if "status" in self.batch_table.c:
-            payload["status"] = "received"
-        result = self.db.execute(insert(self.batch_table).values(**payload))
-        return int(result.inserted_primary_key[0])
+        return self.raw_ingestion_repository._create_batch(
+            source_system="open-meteo",
+            source_topic="weather_hourly",
+            source_uri=source_uri,
+            notes=notes,
+        )
 
     def store_raw_payload(self, ingestion_batch_id: int, payload: dict[str, Any], entity_hint: str | None = None) -> int | None:
         raw_bytes = json.dumps(payload).encode("utf-8")
-        values: dict[str, Any] = {
-            self.raw_payload_batch_col.key: ingestion_batch_id,
-            self.raw_payload_payload_col.key: raw_bytes if str(self.raw_payload_payload_col.type).lower().find("blob") >= 0 else payload,
-        }
-        if self.raw_payload_entity_col is not None:
-            values[self.raw_payload_entity_col.key] = entity_hint
-        if self.raw_payload_hash_col is not None:
-            values[self.raw_payload_hash_col.key] = hashlib.sha256(raw_bytes).hexdigest()
-        if "payload_bytes" in self.raw_payload_table.c:
-            values["payload_bytes"] = raw_bytes
-        result = self.db.execute(insert(self.raw_payload_table).values(**values))
-        return int(result.inserted_primary_key[0]) if result.inserted_primary_key else None
+        return self.raw_ingestion_repository._store_payload(
+            ingestion_batch_id=ingestion_batch_id,
+            payload=payload,
+            raw_bytes=raw_bytes,
+            entity_hint=entity_hint,
+        )
 
     def ensure_quality_flag(self, code: str, description: str) -> None:
         if self.quality_flag_code_col is None or self.quality_flag_desc_col is None:

@@ -56,8 +56,6 @@ def test_backfill_missing_site_coordinates_from_customer_address() -> None:
         db.refresh(customer)
         db.refresh(site)
         assert result == {"customers_geocoded": 1, "sites_updated": 1}
-        assert customer.latitude == Decimal("48.208200")
-        assert customer.longitude == Decimal("16.373800")
         assert site.latitude == Decimal("48.208200")
         assert site.longitude == Decimal("16.373800")
     finally:

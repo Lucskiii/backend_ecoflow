@@ -16,6 +16,7 @@ from app.models.tables import (
     CoreMarketProduct,
     CoreTsMarketPrice,
 )
+from app.repositories.raw_ingestion_repository import RawIngestionRepository
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,13 @@ class AwattarPricePoint:
     ts_utc: datetime
     price_eur_mwh: Decimal
     unit: str
+
+
+@dataclass
+class AwattarFetchResult:
+    source_url: str
+    raw_payload: dict
+    points: list[AwattarPricePoint]
 
 
 class MarketPriceService:
@@ -40,6 +48,7 @@ class MarketPriceService:
     def __init__(self, db: Session):
         self.db = db
         self.settings = get_settings()
+        self.raw_ingestion_repository = RawIngestionRepository(db)
 
     @staticmethod
     def _normalize_ts_utc(ts: datetime) -> datetime:
@@ -49,7 +58,7 @@ class MarketPriceService:
 
     def _fetch_marketdata(
         self, start_ms: int | None = None, end_ms: int | None = None
-    ) -> list[AwattarPricePoint]:
+    ) -> AwattarFetchResult:
         params: dict[str, int] = {}
         if start_ms is not None:
             params["start"] = start_ms
@@ -75,7 +84,7 @@ class MarketPriceService:
                     unit=str(item.get("unit", "Eur/MWh")),
                 )
             )
-        return points
+        return AwattarFetchResult(source_url=str(response.url), raw_payload=payload, points=points)
 
     def _get_or_create_market(self) -> CoreMarket:
         market = self.db.scalar(
@@ -133,8 +142,17 @@ class MarketPriceService:
             else None
         )
 
-        points = self._fetch_marketdata(start_ms=start_ms, end_ms=end_ms)
+        fetch_result = self._fetch_marketdata(start_ms=start_ms, end_ms=end_ms)
+        points = fetch_result.points
         api_points_count = len(points)
+        self.raw_ingestion_repository.record_api_call(
+            source_system=self.SOURCE,
+            source_topic="market_prices",
+            source_uri=fetch_result.source_url,
+            payload=fetch_result.raw_payload,
+            notes=f"market price refresh start={start} end={end}",
+            entity_hint=self.PRODUCT_CODE,
+        )
         if not points:
             logger.info(
                 "Market price refresh complete source=%s api_points=%s existing=%s inserted=%s",
