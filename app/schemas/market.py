@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from pydantic import BaseModel, Field
@@ -20,3 +20,14 @@ class MarketPriceTimeseriesResponse(BaseModel):
 
 class MarketPriceRefreshResponse(BaseModel):
     inserted: int
+
+
+class MarketPriceBackfillResponse(BaseModel):
+    processed_products: int
+    inserted_rows: int
+    skipped_products: int
+    failed_products: int
+    target_start_date: date
+    earliest_observed_ts: datetime | None
+    latest_backfilled_ts: datetime | None
+

@@ -115,3 +115,24 @@ tests/
 - `POST /api/weather/backfill/all` backfills all sites with valid coordinates.
 - `POST /api/weather/sync` fetches only missing data from the latest stored timestamp through the newest available UTC date.
 - `GET /api/weather/status` reports scheduler configuration and per-site latest stored timestamps.
+
+## One-time market price historical backfill
+
+- Purpose: fill **missing older** rows in `core_ts_market_price` from the earliest stored timestamp backwards to a target date.
+- This is a **manual one-time operation** and is **not** attached to startup or any scheduler.
+- Idempotency: existing rows are preserved; only missing historical rows are inserted.
+
+### Trigger endpoint
+
+- `POST /api/market/backfill/historical`
+- Query parameters:
+  - `manual_run=true` (required guard)
+  - `target_start_date=YYYY-MM-DD` (optional, defaults to `MARKET_PRICE_BACKFILL_DEFAULT_START_DATE`, default value `2025-03-26`)
+
+Example:
+
+```bash
+curl -X POST "http://localhost:8000/api/market/backfill/historical?manual_run=true&target_start_date=2025-03-26"
+```
+
+The response includes processed/skipped/failed product counts, inserted row count, and effective backfill range metadata.
