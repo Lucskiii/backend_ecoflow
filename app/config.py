@@ -28,6 +28,12 @@ class Settings(BaseSettings):
     market_price_scheduler_enabled: bool = Field(
         default=True, alias="MARKET_PRICE_SCHEDULER_ENABLED"
     )
+    market_price_backfill_default_start_date: str = Field(
+        default="2025-03-26", alias="MARKET_PRICE_BACKFILL_DEFAULT_START_DATE"
+    )
+    market_price_backfill_manual_enabled: bool = Field(
+        default=True, alias="MARKET_PRICE_BACKFILL_MANUAL_ENABLED"
+    )
     open_meteo_historical_url: str = Field(
         default="https://archive-api.open-meteo.com/v1/archive",
         alias="OPEN_METEO_HISTORICAL_URL",
