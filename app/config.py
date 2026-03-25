@@ -40,6 +40,17 @@ class Settings(BaseSettings):
         default="https://geocoding-api.open-meteo.com/v1/search",
         alias="OPEN_METEO_GEOCODING_URL",
     )
+    opencage_geocoding_url: str = Field(
+        default="https://api.opencagedata.com/geocode/v1/json",
+        alias="OPENCAGE_GEOCODING_URL",
+    )
+    opencage_api_key: str = Field(
+        default="6989517620f14c33a88c0147d1d63a5b",
+        alias="OPENCAGE_API_KEY",
+    )
+    opencage_timeout_seconds: int = Field(
+        default=30, ge=1, alias="OPENCAGE_TIMEOUT_SECONDS"
+    )
     open_meteo_timeout_seconds: int = Field(
         default=30, ge=1, alias="OPEN_METEO_TIMEOUT_SECONDS"
     )

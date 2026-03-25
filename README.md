@@ -55,6 +55,8 @@ tests/
 - `POST /api/customers`
 - `PUT /api/customers/{customer_id}`
 - `DELETE /api/customers/{customer_id}`
+- `POST /api/geocode/site/{site_id}`
+- `POST /api/geocode/all-sites`
 
 
 ## Database foundation
@@ -65,6 +67,27 @@ tests/
 - After pulling new backend changes, run `python -m alembic upgrade head` before startup so new columns (e.g. customer address/geocoordinates) exist.
 - Configure your connection in `.env` using `DATABASE_URL` (example provided in `.env.example`).
 
+
+
+## Geocoding
+
+- Address-to-coordinate resolution now uses the OpenCage Geocoding API (`https://api.opencagedata.com/geocode/v1/json`).
+- Weather ingestion remains on Open-Meteo APIs; only address geocoding changed.
+- Geocoding tries multiple address variants and stops at the first successful match:
+  1. `address_line1, postal_code, city, country`
+  2. `address_line1, city, country`
+  3. `postal_code, city, country`
+  4. `city, country`
+- Existing site coordinates are not geocoded again unless the `force=true` query parameter is used.
+- Relevant settings:
+  - `OPENCAGE_API_KEY`
+  - `OPENCAGE_GEOCODING_URL`
+  - `OPENCAGE_TIMEOUT_SECONDS`
+
+### Manual geocoding operations
+
+- `POST /api/geocode/site/{site_id}` geocodes one site and stores coordinates in `core_site`.
+- `POST /api/geocode/all-sites` geocodes all sites without coordinates (or all sites with `force=true`).
 
 ## Weather ingestion
 
@@ -84,7 +107,6 @@ tests/
   - `WEATHER_RECENT_DAYS_WINDOW`
   - `OPEN_METEO_HISTORICAL_URL`
   - `OPEN_METEO_FORECAST_URL`
-  - `OPEN_METEO_GEOCODING_URL`
 - The scheduler is non-blocking and skips duplicate thread startup when the app reloads.
 
 ### Manual weather operations

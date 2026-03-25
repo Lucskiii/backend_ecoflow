@@ -11,8 +11,8 @@ from app.services.geocoding_service import GeocodeResult
 
 
 class StubGeocodingService:
-    def geocode_address(self, *, address_line1: str, city: str, postal_code: str, country: str) -> GeocodeResult:
-        assert address_line1 and city and postal_code and country
+    def geocode_site(self, site_id: int, force: bool = False) -> GeocodeResult:
+        assert site_id == 1
         return GeocodeResult(latitude=Decimal("48.208200"), longitude=Decimal("16.373800"))
 
 
