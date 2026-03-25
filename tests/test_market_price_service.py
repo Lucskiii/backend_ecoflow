@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.database import Base
 from app.models.tables import CoreTsMarketPrice
-from app.services.market_price_service import AwattarPricePoint, MarketPriceService
+from app.services.market_price_service import AwattarFetchResult, AwattarPricePoint, MarketPriceService
 
 
 class _Obj:
@@ -25,6 +25,14 @@ def _make_point(ts: datetime, price: str) -> AwattarPricePoint:
     return AwattarPricePoint(ts_utc=ts, price_eur_mwh=Decimal(price), unit="Eur/MWh")
 
 
+def _make_result(points: list[AwattarPricePoint]) -> AwattarFetchResult:
+    return AwattarFetchResult(
+        source_url="https://api.awattar.test",
+        raw_payload={"data": []},
+        points=points,
+    )
+
+
 def test_refresh_prices_is_idempotent_for_overlapping_windows() -> None:
     testing_session_local = _setup_test_db()
     db = testing_session_local()
@@ -37,13 +45,13 @@ def test_refresh_prices_is_idempotent_for_overlapping_windows() -> None:
     p2 = _make_point(datetime(2026, 3, 12, 9, 0, tzinfo=timezone.utc), "91.0")
     p3 = _make_point(datetime(2026, 3, 12, 10, 0, tzinfo=timezone.utc), "89.4")
 
-    service._fetch_marketdata = lambda **kwargs: [p1, p2]  # type: ignore[method-assign]
+    service._fetch_marketdata = lambda **kwargs: _make_result([p1, p2])  # type: ignore[method-assign]
     first_inserted = service.refresh_prices()
 
-    service._fetch_marketdata = lambda **kwargs: [p2, p3]  # type: ignore[method-assign]
+    service._fetch_marketdata = lambda **kwargs: _make_result([p2, p3])  # type: ignore[method-assign]
     second_inserted = service.refresh_prices()
 
-    service._fetch_marketdata = lambda **kwargs: [p1, p2, p3]  # type: ignore[method-assign]
+    service._fetch_marketdata = lambda **kwargs: _make_result([p1, p2, p3])  # type: ignore[method-assign]
     third_inserted = service.refresh_prices()
 
     total_rows = db.scalar(select(func.count()).select_from(CoreTsMarketPrice))
@@ -68,11 +76,11 @@ def test_refresh_prices_logs_existing_and_inserted_counts(caplog) -> None:
     p1 = _make_point(datetime(2026, 3, 12, 8, 0, tzinfo=timezone.utc), "90.5")
     p2 = _make_point(datetime(2026, 3, 12, 9, 0, tzinfo=timezone.utc), "91.0")
 
-    service._fetch_marketdata = lambda **kwargs: [p1, p2]  # type: ignore[method-assign]
+    service._fetch_marketdata = lambda **kwargs: _make_result([p1, p2])  # type: ignore[method-assign]
     service.refresh_prices()
 
     caplog.clear()
-    service._fetch_marketdata = lambda **kwargs: [p1, p2]  # type: ignore[method-assign]
+    service._fetch_marketdata = lambda **kwargs: _make_result([p1, p2])  # type: ignore[method-assign]
     inserted = service.refresh_prices()
 
     assert inserted == 0
