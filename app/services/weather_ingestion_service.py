@@ -136,8 +136,7 @@ class WeatherIngestionService:
                 source_uri=result.source_url,
                 notes=f"weather ingestion for site_id={site.site_id} range={range_start}..{range_end}",
             )
-            if self.settings.weather_store_raw_payload:
-                self.repository.store_raw_payload(ingestion_batch_id, result.raw_payload, entity_hint=f"weather_site_{site.site_id}")
+            self.repository.store_raw_payload(ingestion_batch_id, result.raw_payload, entity_hint=f"weather_site_{site.site_id}")
             observations = self._build_observation_rows(weather_loc_id, ingestion_batch_id, result)
             rows_inserted += self.repository.upsert_weather_observations(observations)
             logger.info(

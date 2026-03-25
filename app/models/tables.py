@@ -84,8 +84,6 @@ class Customer(Base):
     city: Mapped[str | None] = mapped_column(String(120))
     postal_code: Mapped[str | None] = mapped_column(String(32))
     country: Mapped[str | None] = mapped_column(String(120))
-    latitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6))
-    longitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6))
     external_ref: Mapped[str | None] = mapped_column(String(64), unique=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
 
