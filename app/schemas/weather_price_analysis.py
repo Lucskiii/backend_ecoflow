@@ -12,6 +12,7 @@ class AnalysisCityWeightInput(BaseModel):
 
 
 class WeatherPriceAnalysisRequest(BaseModel):
+    run_name: str | None = Field(default=None, min_length=1, max_length=255)
     start_date: date
     end_date: date
     product_id: int | None = Field(default=None, gt=0)
@@ -44,6 +45,7 @@ class WeatherPriceAnalysisRow(BaseModel):
 
 class WeatherPriceAnalysisResponse(BaseModel):
     analysis_run_id: int
+    run_name: str | None
     normalized_weights: list[NormalizedWeight]
     rows_inserted_weather: int
     rows_inserted_aggregate: int
@@ -53,6 +55,7 @@ class WeatherPriceAnalysisResponse(BaseModel):
 
 class WeatherPriceAnalysisRunStatus(BaseModel):
     analysis_run_id: int
+    run_name: str | None
     status: str
     start_date: date | None
     end_date: date | None
@@ -63,3 +66,7 @@ class WeatherPriceAnalysisRunStatus(BaseModel):
 
 class WeatherPriceAnalysisErrorResponse(BaseModel):
     detail: str
+
+
+class WeatherPriceAnalysisRenameRequest(BaseModel):
+    run_name: str = Field(min_length=1, max_length=255)

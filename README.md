@@ -161,5 +161,6 @@ The response includes processed/skipped/failed product counts, inserted row coun
   - final joined dataset for direct frontend rendering.
 
 Additional endpoints:
-- `GET /analysis/weather-price/{analysis_run_id}` returns persisted result rows.
-- `GET /analysis/weather-price/{analysis_run_id}/status` returns run metadata and row counts.
+- `GET /api/analysis/weather-price/{analysis_run_id}` returns persisted result rows from `bi_weather_price_analysis` for frontend display.
+- `GET /api/analysis/weather-price/{analysis_run_id}/status` returns run metadata and row counts.
+- `PATCH /api/analysis/weather-price/{analysis_run_id}/name` renames an existing analysis run for frontend labeling.

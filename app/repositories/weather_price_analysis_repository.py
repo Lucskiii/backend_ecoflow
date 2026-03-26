@@ -37,6 +37,13 @@ class WeatherPriceAnalysisRepository:
         run.status = status_value
         run.notes = notes
 
+    def set_run_name(self, run_id: int, run_name: str) -> CoreWeatherPriceAnalysisRun | None:
+        run = self.db.get(CoreWeatherPriceAnalysisRun, run_id)
+        if run is None:
+            return None
+        run.run_name = run_name
+        return run
+
     def add_run_cities(self, run_id: int, city_weights: dict[int, object]) -> None:
         for city_id, weight in city_weights.items():
             self.db.add(
@@ -94,6 +101,18 @@ class WeatherPriceAnalysisRepository:
             )
         )
 
+    def get_run(self, run_id: int) -> CoreWeatherPriceAnalysisRun | None:
+        return self.db.get(CoreWeatherPriceAnalysisRun, run_id)
+
+    def get_run_city_weights(self, run_id: int) -> dict[int, object]:
+        rows = self.db.execute(
+            select(
+                CoreWeatherPriceAnalysisRunCity.analysis_city_id,
+                CoreWeatherPriceAnalysisRunCity.weight,
+            ).where(CoreWeatherPriceAnalysisRunCity.analysis_run_id == run_id)
+        ).all()
+        return {int(city_id): weight for city_id, weight in rows}
+
     def get_status_payload(self, run_id: int) -> dict | None:
         run = self.db.get(CoreWeatherPriceAnalysisRun, run_id)
         if run is None:
@@ -106,6 +125,7 @@ class WeatherPriceAnalysisRepository:
         )
         return {
             "analysis_run_id": run.id,
+            "run_name": run.run_name,
             "status": run.status,
             "start_date": run.start_date,
             "end_date": run.end_date,

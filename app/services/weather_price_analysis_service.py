@@ -40,7 +40,7 @@ class WeatherPriceAnalysisService:
         normalized_weights = self._normalized_weights(payload)
         city_ids = [item.analysis_city_id for item in payload.cities]
 
-        run = self.repository.create_run(payload.start_date, payload.end_date, run_name="frontend-analysis")
+        run = self.repository.create_run(payload.start_date, payload.end_date, run_name=payload.run_name or "frontend-analysis")
         self.repository.add_run_cities(run.id, normalized_weights)
         self.repository.set_run_status(run.id, "running")
 
@@ -98,6 +98,7 @@ class WeatherPriceAnalysisService:
         response_rows = self.repository.get_analysis_rows(run.id)
         return WeatherPriceAnalysisResponse(
             analysis_run_id=run.id,
+            run_name=run.run_name,
             normalized_weights=[
                 {"analysis_city_id": city_id, "weight": weight}
                 for city_id, weight in normalized_weights.items()
@@ -121,12 +122,18 @@ class WeatherPriceAnalysisService:
         )
 
     def get_run_data(self, analysis_run_id: int) -> WeatherPriceAnalysisResponse:
-        rows = self.repository.get_analysis_rows(analysis_run_id)
-        if not rows:
+        run = self.repository.get_run(analysis_run_id)
+        if run is None:
             raise AnalysisNotFoundError(f"Analysis run {analysis_run_id} not found")
+        rows = self.repository.get_analysis_rows(analysis_run_id)
+        run_weights = self.repository.get_run_city_weights(analysis_run_id)
         return WeatherPriceAnalysisResponse(
             analysis_run_id=analysis_run_id,
-            normalized_weights=[],
+            run_name=run.run_name,
+            normalized_weights=[
+                {"analysis_city_id": city_id, "weight": weight}
+                for city_id, weight in run_weights.items()
+            ],
             rows_inserted_weather=0,
             rows_inserted_aggregate=0,
             rows_inserted_analysis=len(rows),
@@ -144,6 +151,13 @@ class WeatherPriceAnalysisService:
                 for row in rows
             ],
         )
+
+    def rename_run(self, analysis_run_id: int, run_name: str) -> dict:
+        run = self.repository.set_run_name(analysis_run_id, run_name)
+        if run is None:
+            raise AnalysisNotFoundError(f"Analysis run {analysis_run_id} not found")
+        self.db.commit()
+        return {"analysis_run_id": run.id, "run_name": run.run_name}
 
     def get_status(self, analysis_run_id: int) -> dict:
         payload = self.repository.get_status_payload(analysis_run_id)

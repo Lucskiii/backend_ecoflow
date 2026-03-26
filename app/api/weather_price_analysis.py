@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.schemas.weather_price_analysis import (
+    WeatherPriceAnalysisRenameRequest,
     WeatherPriceAnalysisRequest,
     WeatherPriceAnalysisResponse,
     WeatherPriceAnalysisRunStatus,
@@ -59,3 +60,15 @@ def get_weather_price_analysis_status(
     except AnalysisNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     return WeatherPriceAnalysisRunStatus(**payload)
+
+
+@router.patch("/{analysis_run_id}/name")
+def rename_weather_price_analysis(
+    analysis_run_id: int,
+    payload: WeatherPriceAnalysisRenameRequest,
+    db: Session = Depends(get_db),
+) -> dict:
+    try:
+        return WeatherPriceAnalysisService(db).rename_run(analysis_run_id, payload.run_name)
+    except AnalysisNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
