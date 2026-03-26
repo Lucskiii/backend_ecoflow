@@ -181,6 +181,25 @@ class CoreTsAssetTelemetry(Base):
     )
 
 
+class CoreAnalysisCity(Base):
+    __tablename__ = "core_analysis_city"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    city_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    country_code: Mapped[str | None] = mapped_column(String(10))
+    country_name: Mapped[str | None] = mapped_column(String(100))
+    latitude: Mapped[Decimal] = mapped_column(Numeric(9, 6), nullable=False)
+    longitude: Mapped[Decimal] = mapped_column(Numeric(9, 6), nullable=False)
+    open_meteo_location_id: Mapped[int | None] = mapped_column(BigInteger)
+    admin1: Mapped[str | None] = mapped_column(String(100))
+    timezone: Mapped[str | None] = mapped_column(String(100))
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("city_name", "country_code", name="uq_core_analysis_city_name_country"),
+    )
+
+
 class CoreWeatherLocation(Base):
     __tablename__ = "core_weather_location"
 

@@ -12,6 +12,7 @@ from app.models.tables import (
     BiFactMarketPrice,
     BiFactSettlement,
     CoreAssetCapability,
+    CoreAnalysisCity,
     CoreBiddingZone,
     CoreContract,
     CoreDispatchExecution,
