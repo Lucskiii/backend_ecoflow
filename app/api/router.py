@@ -44,6 +44,7 @@ from app.services.geocoding_service import GeocodingService
 from app.services.market_price_backfill_service import MarketPriceBackfillService
 from app.services.market_price_service import MarketPriceService
 from app.services.portfolio_service import PortfolioService
+from app.api.analysis_cities import router as analysis_cities_router
 
 router = APIRouter(prefix="/api", tags=["customers"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
@@ -426,3 +427,6 @@ def backfill_historical_market_prices(
         earliest_observed_ts=summary.earliest_observed_ts,
         latest_backfilled_ts=summary.latest_backfilled_ts,
     )
+
+
+router.include_router(analysis_cities_router)

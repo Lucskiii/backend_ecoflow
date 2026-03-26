@@ -136,3 +136,10 @@ curl -X POST "http://localhost:8000/api/market/backfill/historical?manual_run=tr
 ```
 
 The response includes processed/skipped/failed product counts, inserted row count, and effective backfill range metadata.
+
+## Analysis cities (manual weather locations)
+
+- Frontend users can create analysis cities via `POST /api/analysis-cities` by sending `city_name` and optional `country_code`.
+- The backend resolves coordinates via the **Open-Meteo Geocoding API** (`/v1/search`) and stores the resolved city in a dedicated `core_analysis_city` table.
+- If a city cannot be resolved, the API returns a user-friendly client error (no generic 500).
+
