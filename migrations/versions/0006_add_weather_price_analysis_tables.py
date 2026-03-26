@@ -1,6 +1,6 @@
 """add weighted weather-price analysis tables
 
-Revision ID: 0006_add_weather_price_analysis_tables
+Revision ID: 0006_weather_price_analysis
 Revises: 0005_add_core_analysis_city
 Create Date: 2026-03-26 00:00:01.000000
 """
@@ -9,7 +9,7 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision = "0006_add_weather_price_analysis_tables"
+revision = "0006_weather_price_analysis"
 down_revision = "0005_add_core_analysis_city"
 branch_labels = None
 depends_on = None
