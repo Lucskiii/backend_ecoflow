@@ -143,3 +143,23 @@ The response includes processed/skipped/failed product counts, inserted row coun
 - The backend resolves coordinates via the **Open-Meteo Geocoding API** (`/v1/search`) and stores the resolved city in a dedicated `core_analysis_city` table.
 - If a city cannot be resolved, the API returns a user-friendly client error (no generic 500).
 
+## Weighted weather-price analysis workflow
+
+- Frontend sends `POST /analysis/weather-price` with `start_date`, `end_date`, optional `product_id` / `price_type`, and selected analysis cities including weights.
+- Backend validates city ids, rejects duplicates, normalizes weights to sum `1.0`, and stores one analysis run (`core_weather_price_analysis_run`) with run-city mapping (`core_weather_price_analysis_run_city`).
+- Backend ensures hourly weather exists in `core_analysis_city_weather_observation` for each selected city:
+  - Existing data is reused.
+  - Only missing hourly timestamps are fetched from Open-Meteo.
+  - Inserts are idempotent via unique key `(analysis_city_id, ts_utc)`.
+- Backend performs weighted aggregation per timestamp into `core_weighted_weather_aggregate`.
+  - Strategy: if a metric is missing for some cities at a timestamp, available city weights are re-normalized for that metric+timestamp.
+- Backend joins weighted weather with `core_ts_market_price` on `ts_utc` and writes final BI rows into `bi_weather_price_analysis`.
+- API response returns:
+  - `analysis_run_id`
+  - normalized weights actually used
+  - inserted row counters
+  - final joined dataset for direct frontend rendering.
+
+Additional endpoints:
+- `GET /analysis/weather-price/{analysis_run_id}` returns persisted result rows.
+- `GET /analysis/weather-price/{analysis_run_id}/status` returns run metadata and row counts.
