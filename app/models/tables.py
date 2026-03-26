@@ -200,6 +200,101 @@ class CoreAnalysisCity(Base):
     )
 
 
+class CoreAnalysisCityWeatherObservation(Base):
+    __tablename__ = "core_analysis_city_weather_observation"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    analysis_city_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("core_analysis_city.id", ondelete="CASCADE"), nullable=False
+    )
+    ts_utc: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    temp_c: Mapped[Decimal | None] = mapped_column(Numeric(8, 3))
+    wind_ms: Mapped[Decimal | None] = mapped_column(Numeric(8, 3))
+    ghi_wm2: Mapped[Decimal | None] = mapped_column(Numeric(10, 3))
+    cloud_pct: Mapped[Decimal | None] = mapped_column(Numeric(6, 3))
+    quality_flag: Mapped[str | None] = mapped_column(String(20))
+    source_system: Mapped[str] = mapped_column(String(50), nullable=False, server_default="open-meteo")
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("analysis_city_id", "ts_utc", name="uq_core_analysis_city_weather_city_ts"),
+        Index("ix_core_analysis_city_weather_ts_utc", "ts_utc"),
+    )
+
+
+class CoreWeatherPriceAnalysisRun(Base):
+    __tablename__ = "core_weather_price_analysis_run"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    run_name: Mapped[str | None] = mapped_column(String(255))
+    requested_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
+    start_date: Mapped[date | None] = mapped_column(Date)
+    end_date: Mapped[date | None] = mapped_column(Date)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, server_default="created")
+    notes: Mapped[str | None] = mapped_column(Text)
+
+
+class CoreWeatherPriceAnalysisRunCity(Base):
+    __tablename__ = "core_weather_price_analysis_run_city"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    analysis_run_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("core_weather_price_analysis_run.id", ondelete="CASCADE"), nullable=False
+    )
+    analysis_city_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("core_analysis_city.id", ondelete="CASCADE"), nullable=False
+    )
+    weight: Mapped[Decimal] = mapped_column(Numeric(10, 4), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("analysis_run_id", "analysis_city_id", name="uq_analysis_run_city"),
+    )
+
+
+class CoreWeightedWeatherAggregate(Base):
+    __tablename__ = "core_weighted_weather_aggregate"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    analysis_run_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("core_weather_price_analysis_run.id", ondelete="CASCADE"), nullable=False
+    )
+    ts_utc: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    temp_c_weighted: Mapped[Decimal | None] = mapped_column(Numeric(10, 4))
+    wind_ms_weighted: Mapped[Decimal | None] = mapped_column(Numeric(10, 4))
+    ghi_wm2_weighted: Mapped[Decimal | None] = mapped_column(Numeric(10, 4))
+    cloud_pct_weighted: Mapped[Decimal | None] = mapped_column(Numeric(10, 4))
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("analysis_run_id", "ts_utc", name="uq_weighted_weather_run_ts"),
+        Index("ix_weighted_weather_ts_utc", "ts_utc"),
+    )
+
+
+class BiWeatherPriceAnalysis(Base):
+    __tablename__ = "bi_weather_price_analysis"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    analysis_run_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("core_weather_price_analysis_run.id", ondelete="CASCADE"), nullable=False
+    )
+    ts_utc: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    temp_c_weighted: Mapped[Decimal | None] = mapped_column(Numeric(10, 4))
+    wind_ms_weighted: Mapped[Decimal | None] = mapped_column(Numeric(10, 4))
+    ghi_wm2_weighted: Mapped[Decimal | None] = mapped_column(Numeric(10, 4))
+    cloud_pct_weighted: Mapped[Decimal | None] = mapped_column(Numeric(10, 4))
+    price_eur_mwh: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    product_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("core_market_product.id"))
+    price_type: Mapped[str | None] = mapped_column(String(20))
+    source_system: Mapped[str] = mapped_column(String(50), nullable=False, server_default="analysis-pipeline")
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("analysis_run_id", "ts_utc", "product_id", "price_type", name="uq_bi_weather_price_run_ts_product_type"),
+        Index("ix_bi_weather_price_ts_utc", "ts_utc"),
+    )
+
+
 class CoreWeatherLocation(Base):
     __tablename__ = "core_weather_location"
 
