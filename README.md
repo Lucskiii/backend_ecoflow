@@ -146,6 +146,7 @@ The response includes processed/skipped/failed product counts, inserted row coun
 ## Weighted weather-price analysis workflow
 
 - Frontend sends `POST /analysis/weather-price` with `start_date`, `end_date`, required `bidding_zone_id`, optional `product_id` / `price_type`, and selected analysis cities including weights.
+- If `product_id` is omitted, backend auto-selects a market product that has prices for the requested `bidding_zone_id` and date range.
 - Backend validates city ids, rejects duplicates, normalizes weights to sum `1.0`, and stores one analysis run (`core_weather_price_analysis_run`) with run-city mapping (`bi_weather_price_analysis_run_city`).
 - Backend ensures hourly weather exists in `core_analysis_city_weather_observation` for each selected city:
   - Existing data is reused.

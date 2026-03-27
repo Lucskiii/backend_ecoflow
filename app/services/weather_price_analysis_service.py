@@ -56,7 +56,13 @@ class WeatherPriceAnalysisService:
                 run.id, normalized_weights, start_ts, end_ts
             )
 
-            product_id = payload.product_id or self.repository.get_default_product_id()
+            product_id = payload.product_id or self.repository.get_default_product_id_for_zone_and_range(
+                payload.bidding_zone_id,
+                start_ts,
+                end_ts,
+            )
+            if product_id is None:
+                product_id = self.repository.get_default_product_id()
             if product_id is None:
                 raise NoPriceDataError("No market product found for price join")
 

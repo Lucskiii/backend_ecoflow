@@ -72,3 +72,40 @@ def test_get_prices_filters_by_bidding_zone() -> None:
     assert prices_b == {ts: Decimal("70.000000")}
 
     db.close()
+
+
+def test_get_default_product_id_for_zone_and_range_prefers_available_product() -> None:
+    testing_session_local = _setup_test_db()
+    db = testing_session_local()
+    repository = WeatherPriceAnalysisRepository(db)
+
+    market = CoreMarket(id=1, code="m-1", name="Market 1")
+    zone = CoreBiddingZone(id=1, code="ZONE-A", name="Zone A")
+    db.add_all([market, zone])
+    db.flush()
+
+    product_without_data = CoreMarketProduct(id=1, market_id=market.id, product_code="spot", granularity_minutes=60)
+    product_with_data = CoreMarketProduct(id=2, market_id=market.id, product_code="intraday", granularity_minutes=60)
+    db.add_all([product_without_data, product_with_data])
+    db.flush()
+
+    ts = datetime(2026, 3, 1, 0, 0)
+    db.add(
+        CoreTsMarketPrice(
+            market_product_id=product_with_data.id,
+            bidding_zone_id=zone.id,
+            ts=ts,
+            price=Decimal("42.0"),
+        )
+    )
+    db.commit()
+
+    selected_product_id = repository.get_default_product_id_for_zone_and_range(
+        bidding_zone_id=zone.id,
+        start_ts=ts,
+        end_ts=ts,
+    )
+
+    assert selected_product_id == product_with_data.id
+
+    db.close()
