@@ -15,6 +15,7 @@ class WeatherPriceAnalysisRequest(BaseModel):
     run_name: str | None = Field(default=None, min_length=1, max_length=255)
     start_date: date
     end_date: date
+    bidding_zone_id: int = Field(gt=0)
     product_id: int | None = Field(default=None, gt=0)
     price_type: str | None = Field(default="spot", min_length=1, max_length=20)
     cities: list[AnalysisCityWeightInput]

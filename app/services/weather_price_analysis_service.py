@@ -6,6 +6,7 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
+from app.models.tables import CoreBiddingZone
 from app.repositories.analysis_city_repository import AnalysisCityRepository
 from app.repositories.weather_price_analysis_repository import WeatherPriceAnalysisRepository
 from app.schemas.weather_price_analysis import WeatherPriceAnalysisRequest, WeatherPriceAnalysisResponse
@@ -59,7 +60,12 @@ class WeatherPriceAnalysisService:
             if product_id is None:
                 raise NoPriceDataError("No market product found for price join")
 
-            prices = self.repository.get_prices(start_ts, end_ts, product_id=product_id)
+            prices = self.repository.get_prices(
+                start_ts,
+                end_ts,
+                product_id=product_id,
+                bidding_zone_id=payload.bidding_zone_id,
+            )
             if not prices:
                 raise NoPriceDataError("No price data available for requested range")
 
@@ -172,6 +178,9 @@ class WeatherPriceAnalysisService:
         city_ids = [city.analysis_city_id for city in payload.cities]
         if len(city_ids) != len(set(city_ids)):
             raise AnalysisValidationError("duplicate city ids are not allowed")
+
+        if self.db.get(CoreBiddingZone, payload.bidding_zone_id) is None:
+            raise AnalysisNotFoundError(f"Bidding zone {payload.bidding_zone_id} does not exist")
 
         for city_id in city_ids:
             if self.city_repository.get_analysis_city_by_id(city_id) is None:
