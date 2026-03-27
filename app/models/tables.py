@@ -235,7 +235,7 @@ class CoreWeatherPriceAnalysisRun(Base):
 
 
 class CoreWeatherPriceAnalysisRunCity(Base):
-    __tablename__ = "core_weather_price_analysis_run_city"
+    __tablename__ = "bi_weather_price_analysis_run_city"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     analysis_run_id: Mapped[int] = mapped_column(
