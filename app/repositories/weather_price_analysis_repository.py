@@ -57,11 +57,23 @@ class WeatherPriceAnalysisRepository:
     def get_default_product_id(self) -> int | None:
         return self.db.scalar(select(func.min(CoreTsMarketPrice.market_product_id)))
 
-    def get_prices(self, start_ts: datetime, end_ts: datetime, product_id: int) -> dict[datetime, float]:
+    def get_default_product_id_for_zone_and_range(
+        self, bidding_zone_id: int, start_ts: datetime, end_ts: datetime
+    ) -> int | None:
+        return self.db.scalar(
+            select(func.min(CoreTsMarketPrice.market_product_id)).where(
+                CoreTsMarketPrice.bidding_zone_id == bidding_zone_id,
+                CoreTsMarketPrice.ts >= start_ts,
+                CoreTsMarketPrice.ts <= end_ts,
+            )
+        )
+
+    def get_prices(self, start_ts: datetime, end_ts: datetime, product_id: int, bidding_zone_id: int) -> dict[datetime, float]:
         stmt: Select[tuple[datetime, float]] = (
             select(CoreTsMarketPrice.ts, CoreTsMarketPrice.price)
             .where(
                 CoreTsMarketPrice.market_product_id == product_id,
+                CoreTsMarketPrice.bidding_zone_id == bidding_zone_id,
                 CoreTsMarketPrice.ts >= start_ts,
                 CoreTsMarketPrice.ts <= end_ts,
             )
