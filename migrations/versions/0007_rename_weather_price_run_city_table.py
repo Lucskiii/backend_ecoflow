@@ -1,6 +1,6 @@
 """rename weather-price run-city table to bi schema
 
-Revision ID: 0007_rename_weather_price_run_city
+Revision ID: 0007_bi_run_city
 Revises: 0006_weather_price_analysis
 Create Date: 2026-03-27 00:00:01.000000
 """
@@ -9,7 +9,7 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision = "0007_rename_weather_price_run_city"
+revision = "0007_bi_run_city"
 down_revision = "0006_weather_price_analysis"
 branch_labels = None
 depends_on = None
