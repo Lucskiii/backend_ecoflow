@@ -39,10 +39,10 @@ class MarketPriceService:
     SOURCE = "awattar"
     MARKET_CODE = "AWATTAR"
     MARKET_NAME = "aWATTar"
-    PRODUCT_CODE = "AT_DAY_AHEAD"
-    PRODUCT_NAME = "AT day-ahead"
-    BIDDING_ZONE_CODE = "AT"
-    BIDDING_ZONE_NAME = "Austria"
+    PRODUCT_CODE = "DE_DAY_AHEAD"
+    PRODUCT_NAME = "DE day-ahead"
+    BIDDING_ZONE_CODE = "DE"
+    BIDDING_ZONE_NAME = "Germany"
     GRANULARITY_MINUTES = 60
 
     def __init__(self, db: Session):
