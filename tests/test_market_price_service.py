@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 from sqlalchemy import create_engine, func, select
@@ -85,5 +85,27 @@ def test_refresh_prices_logs_existing_and_inserted_counts(caplog) -> None:
 
     assert inserted == 0
     assert "api_points=2 existing=2 inserted=0" in caplog.text
+
+    db.close()
+
+
+def test_get_live_prices_returns_current_and_next_point() -> None:
+    testing_session_local = _setup_test_db()
+    db = testing_session_local()
+    service = MarketPriceService(db)
+
+    now = datetime.now(timezone.utc).replace(minute=30, second=0, microsecond=0)
+    p1 = _make_point(now.replace(minute=0), "100.0")
+    p2 = _make_point(now.replace(minute=0) + timedelta(hours=1), "120.0")
+    service._fetch_marketdata = lambda **kwargs: _make_result([p2, p1])  # type: ignore[method-assign]
+
+    payload = service.get_live_prices(lookback_hours=2, lookahead_hours=2)
+
+    assert payload["current"] is not None
+    assert payload["next"] is not None
+    assert payload["current"]["price_eur_mwh"] == Decimal("100.0")
+    assert payload["current"]["price_ct_kwh"] == Decimal("10.0000")
+    assert payload["next"]["price_eur_mwh"] == Decimal("120.0")
+    assert len(payload["points"]) == 2
 
     db.close()
