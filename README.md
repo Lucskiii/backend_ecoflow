@@ -161,6 +161,16 @@ The response includes processed/skipped/failed product counts, inserted row coun
   - inserted row counters
   - final joined dataset for direct frontend rendering.
 
+
+## On-demand weather-price statistics
+
+- Frontend can request backend-computed statistical analysis via `POST /api/analysis/weather-price/statistics`.
+- Statistics are computed on request from linked weather-price rows and returned directly as JSON (**not persisted**).
+- Request modes:
+  - `{ "analysis_run_id": <id> }` to analyze an existing run.
+  - Raw selection payload (`start_date`, `end_date`, `bidding_zone_id`, optional product/price type + weighted cities) to reuse the existing analysis pipeline first and then compute stats.
+- Response includes descriptive stats, weather-vs-price correlations, correlation matrix, bucket analysis, scatter-ready points, lag correlations (`t` to `t+3h`), cautious interpretation hints, and optional outliers/trend lines.
+
 Additional endpoints:
 - `GET /api/analysis/weather-price/{analysis_run_id}` returns persisted result rows from `bi_weather_price_analysis` for frontend display.
 - `GET /api/analysis/weather-price/{analysis_run_id}/status` returns run metadata and row counts.
