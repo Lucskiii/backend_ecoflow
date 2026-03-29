@@ -29,6 +29,7 @@ from app.schemas.energy import (
     PortfolioTimeseriesResponse,
 )
 from app.schemas.market import (
+    LiveMarketPriceResponse,
     MarketPriceBackfillResponse,
     MarketPriceRefreshResponse,
     MarketPriceTimeseriesResponse,
@@ -386,6 +387,26 @@ def get_latest_market_prices(
 ) -> MarketPriceTimeseriesResponse:
     payload = MarketPriceService(db).get_latest_window(hours=hours)
     return MarketPriceTimeseriesResponse(**payload)
+
+
+@router.get("/market/prices/live", response_model=LiveMarketPriceResponse)
+def get_live_market_prices(
+    lookback_hours: int = Query(default=3, ge=1, le=24),
+    lookahead_hours: int = Query(default=36, ge=1, le=72),
+    db: Session = Depends(get_db),
+) -> LiveMarketPriceResponse:
+    try:
+        payload = MarketPriceService(db).get_live_prices(
+            lookback_hours=lookback_hours, lookahead_hours=lookahead_hours
+        )
+    except Exception as exc:
+        logger.warning("Failed to fetch live aWATTar prices: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Could not fetch live market prices from aWATTar",
+        ) from exc
+
+    return LiveMarketPriceResponse(**payload)
 
 
 @router.post("/market/prices/refresh", response_model=MarketPriceRefreshResponse)

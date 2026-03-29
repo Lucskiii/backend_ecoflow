@@ -56,6 +56,11 @@ class MarketPriceService:
             return ts
         return ts.astimezone(timezone.utc).replace(tzinfo=None)
 
+    @staticmethod
+    def _price_to_ct_per_kwh(price_eur_mwh: Decimal) -> Decimal:
+        # 1 EUR/MWh == 0.1 ct/kWh
+        return (price_eur_mwh * Decimal("0.1")).quantize(Decimal("0.0001"))
+
     def _fetch_marketdata(
         self, start_ms: int | None = None, end_ms: int | None = None
     ) -> AwattarFetchResult:
@@ -288,3 +293,39 @@ class MarketPriceService:
         to_ts = datetime.now(timezone.utc)
         from_ts = to_ts - timedelta(hours=hours)
         return self.get_prices(from_ts=from_ts, to_ts=to_ts)
+
+    def get_live_prices(self, lookback_hours: int = 3, lookahead_hours: int = 36) -> dict:
+        now = datetime.now(timezone.utc)
+        window_start = now - timedelta(hours=lookback_hours)
+        window_end = now + timedelta(hours=lookahead_hours)
+
+        fetch_result = self._fetch_marketdata(
+            start_ms=int(window_start.timestamp() * 1000),
+            end_ms=int(window_end.timestamp() * 1000),
+        )
+
+        sorted_points = sorted(fetch_result.points, key=lambda point: point.ts_utc)
+        serialized_points = [
+            {
+                "ts": point.ts_utc,
+                "price_eur_mwh": point.price_eur_mwh,
+                "price_ct_kwh": self._price_to_ct_per_kwh(point.price_eur_mwh),
+            }
+            for point in sorted_points
+        ]
+
+        current_point = next(
+            (point for point in serialized_points if point["ts"] <= now < point["ts"] + timedelta(hours=1)),
+            None,
+        )
+        next_point = next((point for point in serialized_points if point["ts"] > now), None)
+
+        return {
+            "source": self.SOURCE,
+            "product": self.PRODUCT_NAME,
+            "unit": "Eur/MWh",
+            "fetched_at": now,
+            "current": current_point,
+            "next": next_point,
+            "points": serialized_points,
+        }

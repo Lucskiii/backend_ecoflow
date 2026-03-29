@@ -31,3 +31,18 @@ class MarketPriceBackfillResponse(BaseModel):
     earliest_observed_ts: datetime | None
     latest_backfilled_ts: datetime | None
 
+
+class LiveMarketPricePoint(BaseModel):
+    ts: datetime
+    price_eur_mwh: Decimal
+    price_ct_kwh: Decimal
+
+
+class LiveMarketPriceResponse(BaseModel):
+    source: str
+    product: str
+    unit: str = "Eur/MWh"
+    fetched_at: datetime
+    current: LiveMarketPricePoint | None = None
+    next: LiveMarketPricePoint | None = None
+    points: list[LiveMarketPricePoint]
