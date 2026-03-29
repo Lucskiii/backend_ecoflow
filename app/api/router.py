@@ -47,6 +47,7 @@ from app.services.market_price_service import MarketPriceService
 from app.services.portfolio_service import PortfolioService
 from app.api.analysis_cities import router as analysis_cities_router
 from app.api.weather_price_analysis import router as weather_price_analysis_router
+from app.api.weather_price_statistics import router as weather_price_statistics_router
 
 router = APIRouter(prefix="/api", tags=["customers"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
@@ -453,3 +454,4 @@ def backfill_historical_market_prices(
 
 router.include_router(analysis_cities_router)
 router.include_router(weather_price_analysis_router)
+router.include_router(weather_price_statistics_router)

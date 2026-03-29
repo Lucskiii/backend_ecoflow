@@ -10,6 +10,7 @@ email-validator
 httpx
 requests
 pandas
+numpy
 python-dateutil
 pytest
 black
