@@ -17,47 +17,44 @@ class PortfolioService:
         self.db = db
         self.tradable_factor = tradable_factor
 
-    def _period_range(self, period: str) -> tuple[str, datetime, datetime]:
+    def _period_range(self, period: str) -> tuple[str, datetime | None, datetime]:
         now = datetime.now(timezone.utc)
         if period == "7d":
             return period, now - timedelta(days=7), now
         if period == "30d":
             return period, now - timedelta(days=30), now
+        if period == "all":
+            return period, None, now
         return "today", now.replace(hour=0, minute=0, second=0, microsecond=0), now
 
     def export_summary(self, period: str = "today") -> dict:
         period, from_ts, to_ts = self._period_range(period)
 
+        readings_filter = [
+            CoreMeter.meter_role == "grid_export",
+            CoreTsMeterReading.ts < to_ts,
+        ]
+        if from_ts is not None:
+            readings_filter.append(CoreTsMeterReading.ts >= from_ts)
+
         total_grid_export = self.db.scalar(
             select(func.coalesce(func.sum(CoreTsMeterReading.value), Decimal("0")))
             .join(CoreMeter, CoreMeter.id == CoreTsMeterReading.meter_id)
-            .where(
-                CoreMeter.meter_role == "grid_export",
-                CoreTsMeterReading.ts >= from_ts,
-                CoreTsMeterReading.ts < to_ts,
-            )
+            .where(*readings_filter)
         )
 
         customer_count = self.db.scalar(
             select(func.count(distinct(Site.customer_id)))
             .join(CoreMeter, CoreMeter.site_id == Site.id)
             .join(CoreTsMeterReading, CoreTsMeterReading.meter_id == CoreMeter.id)
-            .where(
-                CoreMeter.meter_role == "grid_export",
-                CoreTsMeterReading.ts >= from_ts,
-                CoreTsMeterReading.ts < to_ts,
-            )
+            .where(*readings_filter)
         )
 
         site_count = self.db.scalar(
             select(func.count(distinct(Site.id)))
             .join(CoreMeter, CoreMeter.site_id == Site.id)
             .join(CoreTsMeterReading, CoreTsMeterReading.meter_id == CoreMeter.id)
-            .where(
-                CoreMeter.meter_role == "grid_export",
-                CoreTsMeterReading.ts >= from_ts,
-                CoreTsMeterReading.ts < to_ts,
-            )
+            .where(*readings_filter)
         )
 
         tradable_export = (total_grid_export or Decimal("0")) * self.tradable_factor

@@ -66,6 +66,10 @@ def test_portfolio_summary_and_timeseries() -> None:
     assert payload["interval_minutes"] == 15
     assert payload["safety_factor"] == 0.9
 
+    summary_all = client.get("/api/portfolio/export/summary?period=all")
+    assert summary_all.status_code == 200
+    assert summary_all.json()["period"] == "all"
+
     now = datetime.now(timezone.utc)
     from_ts = (now - timedelta(hours=6)).isoformat()
     to_ts = now.isoformat()

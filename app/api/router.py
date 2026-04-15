@@ -320,7 +320,7 @@ def get_my_energy_timeseries(
 
 @router.get("/portfolio/export/summary", response_model=PortfolioSummaryResponse)
 def get_portfolio_export_summary(
-    period: str = Query(default="today", pattern="^(today|7d|30d)$"),
+    period: str = Query(default="today", pattern="^(today|7d|30d|all)$"),
     db: Session = Depends(get_db),
 ) -> PortfolioSummaryResponse:
     service = PortfolioService(db)
