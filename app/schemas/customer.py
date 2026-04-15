@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
@@ -46,6 +47,7 @@ class CustomerSelfUpdate(BaseModel):
 class CustomerRead(CustomerBase):
     id: int
     created_at: datetime
+    umsatz_eur: Decimal = Field(default=Decimal("0"))
 
     model_config = ConfigDict(from_attributes=True)
 

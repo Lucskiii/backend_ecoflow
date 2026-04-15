@@ -1,5 +1,6 @@
 import logging
 from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.security import OAuth2PasswordBearer
@@ -41,6 +42,7 @@ from app.security import (
     verify_password,
 )
 from app.services.energy_service import EnergyService
+from app.services.customer_revenue_service import CustomerRevenueService
 from app.services.geocoding_service import GeocodingService
 from app.services.market_price_backfill_service import MarketPriceBackfillService
 from app.services.market_price_service import MarketPriceService
@@ -92,15 +94,34 @@ def _ensure_aware_utc(dt: datetime, field_name: str) -> datetime:
     return dt.astimezone(timezone.utc)
 
 
+def _with_umsatz(db: Session, customer, umsatz_eur: Decimal | None = None) -> CustomerRead:
+    payload = CustomerRead.model_validate(customer)
+    payload.umsatz_eur = (
+        umsatz_eur
+        if umsatz_eur is not None
+        else CustomerRevenueService(db).calculate_for_customer(customer.id)
+    )
+    return payload
+
+
 @router.get("/customers", response_model=list[CustomerRead])
 def list_customers(db: Session = Depends(get_db)) -> list[CustomerRead]:
     repository = CustomerRepository(db)
-    return repository.list()
+    customers = repository.list()
+    revenue_by_customer = CustomerRevenueService(db).calculate_for_customers(
+        [customer.id for customer in customers]
+    )
+    return [
+        _with_umsatz(db, customer, umsatz_eur=revenue_by_customer.get(customer.id, Decimal("0")))
+        for customer in customers
+    ]
 
 
 @router.get("/customers/me", response_model=CustomerRead)
-def get_current_customer(customer=Depends(_get_current_customer)) -> CustomerRead:
-    return customer
+def get_current_customer(
+    customer=Depends(_get_current_customer), db: Session = Depends(get_db)
+) -> CustomerRead:
+    return _with_umsatz(db, customer)
 
 
 @router.put("/customers/me", response_model=CustomerRead)
@@ -118,7 +139,8 @@ def update_current_customer(
                 status_code=status.HTTP_409_CONFLICT, detail="Email already registered"
             )
 
-    return repository.update(customer, payload)
+    updated_customer = repository.update(customer, payload)
+    return _with_umsatz(db, updated_customer)
 
 
 @router.get("/customers/{customer_id}", response_model=CustomerRead)
@@ -129,7 +151,7 @@ def get_customer(customer_id: int, db: Session = Depends(get_db)) -> CustomerRea
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found"
         )
-    return customer
+    return _with_umsatz(db, customer)
 
 
 @router.post(
@@ -139,7 +161,7 @@ def create_customer(
     payload: CustomerCreate, db: Session = Depends(get_db)
 ) -> CustomerRead:
     repository = CustomerRepository(db)
-    return repository.create(payload)
+    return _with_umsatz(db, repository.create(payload))
 
 
 @router.put("/customers/{customer_id}", response_model=CustomerRead)
@@ -152,7 +174,7 @@ def update_customer(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found"
         )
-    return repository.update(customer, payload)
+    return _with_umsatz(db, repository.update(customer, payload))
 
 
 @router.delete("/customers/{customer_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -212,7 +234,7 @@ def register_customer(
     db.commit()
     db.refresh(customer)
     token = create_access_token(str(customer.id))
-    return AuthenticatedCustomer(customer=customer, access_token=token)
+    return AuthenticatedCustomer(customer=_with_umsatz(db, customer), access_token=token)
 
 
 @router.post("/auth/login", response_model=TokenResponse)
@@ -238,8 +260,10 @@ def login_customer(
 
 
 @router.get("/auth/me", response_model=CustomerRead)
-def get_me(customer=Depends(_get_current_customer)) -> CustomerRead:
-    return customer
+def get_me(
+    customer=Depends(_get_current_customer), db: Session = Depends(get_db)
+) -> CustomerRead:
+    return _with_umsatz(db, customer)
 
 
 @router.get("/customers/me/energy/summary", response_model=EnergySummaryResponse)
