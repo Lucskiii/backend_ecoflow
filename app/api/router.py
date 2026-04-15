@@ -1,5 +1,6 @@
 import logging
 from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.security import OAuth2PasswordBearer
@@ -93,16 +94,27 @@ def _ensure_aware_utc(dt: datetime, field_name: str) -> datetime:
     return dt.astimezone(timezone.utc)
 
 
-def _with_umsatz(db: Session, customer) -> CustomerRead:
+def _with_umsatz(db: Session, customer, umsatz_eur: Decimal | None = None) -> CustomerRead:
     payload = CustomerRead.model_validate(customer)
-    payload.umsatz_eur = CustomerRevenueService(db).calculate_for_customer(customer.id)
+    payload.umsatz_eur = (
+        umsatz_eur
+        if umsatz_eur is not None
+        else CustomerRevenueService(db).calculate_for_customer(customer.id)
+    )
     return payload
 
 
 @router.get("/customers", response_model=list[CustomerRead])
 def list_customers(db: Session = Depends(get_db)) -> list[CustomerRead]:
     repository = CustomerRepository(db)
-    return [_with_umsatz(db, customer) for customer in repository.list()]
+    customers = repository.list()
+    revenue_by_customer = CustomerRevenueService(db).calculate_for_customers(
+        [customer.id for customer in customers]
+    )
+    return [
+        _with_umsatz(db, customer, umsatz_eur=revenue_by_customer.get(customer.id, Decimal("0")))
+        for customer in customers
+    ]
 
 
 @router.get("/customers/me", response_model=CustomerRead)
