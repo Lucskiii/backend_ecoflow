@@ -62,6 +62,23 @@ CREATE TABLE IF NOT EXISTS core_customer (
     CHECK (customer_type IN ('household','sme','industrial'))
 ) ENGINE=InnoDB;
 
+CREATE TABLE IF NOT EXISTS core_customer_revenue_period (
+  revenue_period_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  customer_id       BIGINT NOT NULL,
+  period_code       VARCHAR(16) NOT NULL,
+  period_start_utc  DATETIME NOT NULL,
+  period_end_utc    DATETIME NOT NULL,
+  revenue_eur       DECIMAL(18,6) NOT NULL DEFAULT 0,
+  calculated_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uq_core_customer_revenue_period UNIQUE (customer_id, period_code),
+  CONSTRAINT chk_core_customer_revenue_period_code
+    CHECK (period_code IN ('all','30d','7d')),
+  CONSTRAINT fk_core_customer_revenue_period_customer
+    FOREIGN KEY (customer_id)
+    REFERENCES core_customer(customer_id)
+    ON DELETE CASCADE
+) ENGINE=InnoDB;
+
 CREATE TABLE IF NOT EXISTS core_site (
   site_id          BIGINT AUTO_INCREMENT PRIMARY KEY,
   customer_id      BIGINT NOT NULL,

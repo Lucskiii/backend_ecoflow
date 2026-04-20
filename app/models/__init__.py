@@ -17,6 +17,7 @@ from app.models.tables import (
     CoreAnalysisCityWeatherObservation,
     CoreBiddingZone,
     CoreContract,
+    CoreCustomerRevenuePeriod,
     CoreDispatchExecution,
     CoreDispatchPlan,
     CoreDispatchStep,
