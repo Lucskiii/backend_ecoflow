@@ -52,6 +52,19 @@ class CustomerRead(CustomerBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class RevenuePeriodRead(BaseModel):
+    period: str
+    from_ts: datetime = Field(alias="from")
+    to_ts: datetime = Field(alias="to")
+    umsatz_eur: Decimal = Field(default=Decimal("0"))
+    calculated_at: datetime
+
+
+class RevenuePeriodsResponse(BaseModel):
+    customer_id: int
+    periods: list[RevenuePeriodRead]
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"

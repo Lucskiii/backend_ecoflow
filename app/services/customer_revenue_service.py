@@ -1,13 +1,18 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import func, select
+from sqlalchemy.dialects.mysql import insert as mysql_insert
+from sqlalchemy.dialects.postgresql import insert as postgresql_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from app.models.tables import (
     CoreBiddingZone,
+    CoreCustomerRevenuePeriod,
     CoreMarket,
     CoreMarketProduct,
     CoreMeter,
@@ -50,6 +55,14 @@ class CustomerRevenueService:
         return product, bidding_zone
 
     def calculate_for_customers(self, customer_ids: list[int]) -> dict[int, Decimal]:
+        return self.calculate_for_customers_in_range(customer_ids=customer_ids, from_ts=None, to_ts=None)
+
+    def calculate_for_customers_in_range(
+        self,
+        customer_ids: list[int],
+        from_ts: datetime | None,
+        to_ts: datetime | None,
+    ) -> dict[int, Decimal]:
         if not customer_ids:
             return {}
 
@@ -59,7 +72,15 @@ class CustomerRevenueService:
             return revenues_by_customer
         product, bidding_zone = resolved
 
+        to_ts = to_ts or datetime.now(timezone.utc)
         meter_hour_expr = self._hour_bucket_expr(CoreTsMeterReading.ts)
+        filters = [
+            Site.customer_id.in_(customer_ids),
+            CoreMeter.meter_role == "grid_export",
+            CoreTsMeterReading.ts < to_ts,
+        ]
+        if from_ts is not None:
+            filters.append(CoreTsMeterReading.ts >= from_ts)
         export_rows = list(
             self.db.execute(
                 select(
@@ -69,10 +90,7 @@ class CustomerRevenueService:
                 )
                 .join(CoreMeter, CoreMeter.id == CoreTsMeterReading.meter_id)
                 .join(Site, Site.id == CoreMeter.site_id)
-                .where(
-                    Site.customer_id.in_(customer_ids),
-                    CoreMeter.meter_role == "grid_export",
-                )
+                .where(*filters)
                 .group_by(Site.customer_id, meter_hour_expr)
             )
         )
@@ -87,6 +105,7 @@ class CustomerRevenueService:
                 .where(
                     CoreTsMarketPrice.market_product_id == product.id,
                     CoreTsMarketPrice.bidding_zone_id == bidding_zone.id,
+                    CoreTsMarketPrice.ts < to_ts,
                     price_hour_expr.in_(hour_buckets),
                 )
             )
@@ -106,3 +125,108 @@ class CustomerRevenueService:
 
     def calculate_for_customer(self, customer_id: int) -> Decimal:
         return self.calculate_for_customers([customer_id]).get(customer_id, Decimal("0"))
+
+    def calculate_for_customer_in_range(
+        self, customer_id: int, from_ts: datetime | None, to_ts: datetime | None
+    ) -> Decimal:
+        return self.calculate_for_customers_in_range([customer_id], from_ts=from_ts, to_ts=to_ts).get(
+            customer_id, Decimal("0")
+        )
+
+    def get_or_create_period_snapshots(self, customer_id: int) -> list[CoreCustomerRevenuePeriod]:
+        now = datetime.now(timezone.utc)
+        now_naive = now.replace(tzinfo=None)
+        period_ranges = {
+            "all": datetime(1970, 1, 1, tzinfo=timezone.utc),
+            "30d": now - timedelta(days=30),
+            "7d": now - timedelta(days=7),
+        }
+        for period_code, from_ts in period_ranges.items():
+            revenue = self.calculate_for_customer_in_range(customer_id, from_ts=from_ts, to_ts=now)
+            self._upsert_period_snapshot(
+                customer_id=customer_id,
+                period_code=period_code,
+                period_start=from_ts.replace(tzinfo=None),
+                period_end=now_naive,
+                revenue_eur=revenue,
+                calculated_at=now_naive,
+            )
+
+        snapshots = list(
+            self.db.scalars(
+                select(CoreCustomerRevenuePeriod).where(
+                    CoreCustomerRevenuePeriod.customer_id == customer_id,
+                    CoreCustomerRevenuePeriod.period_code.in_(tuple(period_ranges.keys())),
+                )
+            )
+        )
+        snapshots_by_period = {snapshot.period_code: snapshot for snapshot in snapshots}
+        return [snapshots_by_period[period_code] for period_code in period_ranges]
+
+    def _upsert_period_snapshot(
+        self,
+        customer_id: int,
+        period_code: str,
+        period_start: datetime,
+        period_end: datetime,
+        revenue_eur: Decimal,
+        calculated_at: datetime,
+    ) -> None:
+        insert_values = {
+            "customer_id": customer_id,
+            "period_code": period_code,
+            "period_start": period_start,
+            "period_end": period_end,
+            "revenue_eur": revenue_eur,
+            "calculated_at": calculated_at,
+        }
+        update_values = {
+            "period_start": period_start,
+            "period_end": period_end,
+            "revenue_eur": revenue_eur,
+            "calculated_at": calculated_at,
+        }
+        dialect_name = self.db.get_bind().dialect.name
+
+        if dialect_name == "postgresql":
+            stmt = postgresql_insert(CoreCustomerRevenuePeriod).values(**insert_values)
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["customer_id", "period_code"],
+                set_=update_values,
+            )
+            self.db.execute(stmt)
+            return
+
+        if dialect_name == "mysql":
+            stmt = mysql_insert(CoreCustomerRevenuePeriod).values(**insert_values)
+            stmt = stmt.on_duplicate_key_update(**update_values)
+            self.db.execute(stmt)
+            return
+
+        if dialect_name == "sqlite":
+            next_row_id = int(
+                self.db.scalar(select(func.coalesce(func.max(CoreCustomerRevenuePeriod.id), 0) + 1)) or 1
+            )
+            stmt = sqlite_insert(CoreCustomerRevenuePeriod).values(id=next_row_id, **insert_values)
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["customer_id", "period_code"],
+                set_=update_values,
+            )
+            self.db.execute(stmt)
+            return
+
+        existing = self.db.scalar(
+            select(CoreCustomerRevenuePeriod).where(
+                CoreCustomerRevenuePeriod.customer_id == customer_id,
+                CoreCustomerRevenuePeriod.period_code == period_code,
+            )
+        )
+        if existing is None:
+            self.db.add(CoreCustomerRevenuePeriod(**insert_values))
+            self.db.flush()
+            return
+
+        existing.period_start = period_start
+        existing.period_end = period_end
+        existing.revenue_eur = revenue_eur
+        existing.calculated_at = calculated_at
