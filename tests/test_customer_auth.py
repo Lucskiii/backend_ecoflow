@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session, sessionmaker
@@ -10,6 +10,7 @@ from app.database import Base, get_db
 from app.main import app
 from app.models.tables import (
     CoreBiddingZone,
+    CoreCustomerRevenuePeriod,
     CoreMarket,
     CoreMarketProduct,
     CoreMeter,
@@ -127,6 +128,142 @@ def test_register_login_and_me() -> None:
     assert unauthorized_update_response.status_code == 401
     unauthorized_me_response = client.get("/api/customers/me")
     assert unauthorized_me_response.status_code == 401
+
+    GeocodingService.geocode_address = original_geocode
+    EnergyService.backfill_customer_data_to_now = original_backfill
+    app.dependency_overrides.clear()
+
+
+def test_customer_revenue_periods_endpoint_persists_snapshots() -> None:
+    testing_session_local = _setup_test_db()
+
+    def override_get_db():
+        db = testing_session_local()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+    original_geocode = GeocodingService.geocode_address
+    original_backfill = EnergyService.backfill_customer_data_to_now
+
+    def _fake_geocode_address(self, *, address_line1: str, city: str, postal_code: str, country: str) -> GeocodeResult:
+        return GeocodeResult(latitude=Decimal("48.208200"), longitude=Decimal("16.373800"))
+
+    GeocodingService.geocode_address = _fake_geocode_address
+    EnergyService.backfill_customer_data_to_now = lambda self, customer, days=None: None  # type: ignore[method-assign]
+    client = TestClient(app)
+
+    register_response = client.post(
+        "/api/auth/register",
+        json={
+            "name": "Perioden Kunde",
+            "email": "perioden@example.com",
+            "password": "secret123",
+            "address_line1": "Musterstrasse 1",
+            "city": "Wien",
+            "postal_code": "1010",
+            "country": "Austria",
+        },
+    )
+    assert register_response.status_code == 201
+    token = register_response.json()["access_token"]
+    customer_id = register_response.json()["customer"]["id"]
+
+    db = testing_session_local()
+    try:
+        site = db.scalar(db.query(Site).where(Site.customer_id == customer_id).statement)
+        assert site is not None
+
+        meter_id = int(db.scalar(select(func.coalesce(func.max(CoreMeter.id), 0) + 1)) or 1)
+        db.add(
+            CoreMeter(
+                id=meter_id,
+                site_id=site.id,
+                meter_code=f"site-{site.id}-grid-export-periods",
+                meter_role="grid_export",
+                unit="kWh",
+            )
+        )
+
+        market_id = int(db.scalar(select(func.coalesce(func.max(CoreMarket.id), 0) + 1)) or 1)
+        bidding_zone_id = int(db.scalar(select(func.coalesce(func.max(CoreBiddingZone.id), 0) + 1)) or 1)
+        product_id = int(db.scalar(select(func.coalesce(func.max(CoreMarketProduct.id), 0) + 1)) or 1)
+
+        db.add_all(
+            [
+                CoreMarket(id=market_id, code="AWATTAR", name="aWATTar"),
+                CoreBiddingZone(id=bidding_zone_id, code="DE", name="Germany"),
+                CoreMarketProduct(
+                    id=product_id,
+                    market_id=market_id,
+                    product_code="DE_DAY_AHEAD",
+                    granularity_minutes=60,
+                    direction=None,
+                ),
+            ]
+        )
+        db.flush()
+
+        now = datetime.now(timezone.utc).replace(minute=15, second=0, microsecond=0)
+        db.add_all(
+            [
+                CoreTsMeterReading(meter_id=meter_id, ts=now - timedelta(days=5), interval_seconds=900, value=Decimal("10.0")),
+                CoreTsMeterReading(meter_id=meter_id, ts=now - timedelta(days=20), interval_seconds=900, value=Decimal("10.0")),
+                CoreTsMeterReading(meter_id=meter_id, ts=now - timedelta(days=45), interval_seconds=900, value=Decimal("10.0")),
+            ]
+        )
+        db.add_all(
+            [
+                CoreTsMarketPrice(
+                    market_product_id=product_id,
+                    bidding_zone_id=bidding_zone_id,
+                    ts=(now - timedelta(days=5)).replace(minute=0),
+                    price=Decimal("100.0"),
+                    currency="EUR",
+                ),
+                CoreTsMarketPrice(
+                    market_product_id=product_id,
+                    bidding_zone_id=bidding_zone_id,
+                    ts=(now - timedelta(days=20)).replace(minute=0),
+                    price=Decimal("100.0"),
+                    currency="EUR",
+                ),
+                CoreTsMarketPrice(
+                    market_product_id=product_id,
+                    bidding_zone_id=bidding_zone_id,
+                    ts=(now - timedelta(days=45)).replace(minute=0),
+                    price=Decimal("100.0"),
+                    currency="EUR",
+                ),
+            ]
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    response = client.get("/api/customers/me/revenue/periods", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["customer_id"] == customer_id
+
+    by_period = {entry["period"]: Decimal(str(entry["umsatz_eur"])) for entry in payload["periods"]}
+    assert by_period["7d"] == Decimal("1.000000")
+    assert by_period["30d"] == Decimal("2.000000")
+    assert by_period["all"] == Decimal("3.000000")
+
+    db = testing_session_local()
+    try:
+        rows = list(
+            db.query(CoreCustomerRevenuePeriod)
+            .filter(CoreCustomerRevenuePeriod.customer_id == customer_id)
+            .order_by(CoreCustomerRevenuePeriod.period_code.asc())
+        )
+        assert len(rows) == 3
+        assert {row.period_code for row in rows} == {"all", "30d", "7d"}
+    finally:
+        db.close()
 
     GeocodingService.geocode_address = original_geocode
     EnergyService.backfill_customer_data_to_now = original_backfill

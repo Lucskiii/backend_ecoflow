@@ -20,6 +20,7 @@ from app.schemas.customer import (
     CustomerRegister,
     CustomerSelfUpdate,
     CustomerUpdate,
+    RevenuePeriodsResponse,
     TokenResponse,
 )
 from app.schemas.energy import (
@@ -122,6 +123,29 @@ def get_current_customer(
     customer=Depends(_get_current_customer), db: Session = Depends(get_db)
 ) -> CustomerRead:
     return _with_umsatz(db, customer)
+
+
+@router.get("/customers/me/revenue/periods", response_model=RevenuePeriodsResponse)
+def get_current_customer_revenue_periods(
+    customer=Depends(_get_current_customer), db: Session = Depends(get_db)
+) -> RevenuePeriodsResponse:
+    snapshots = CustomerRevenueService(db).get_or_create_period_snapshots(customer.id)
+    db.commit()
+    snapshots_by_period = {snapshot.period_code: snapshot for snapshot in snapshots}
+    ordered_periods = ("all", "30d", "7d")
+    return RevenuePeriodsResponse(
+        customer_id=customer.id,
+        periods=[
+            {
+                "period": period_code,
+                "from": snapshots_by_period[period_code].period_start.replace(tzinfo=timezone.utc),
+                "to": snapshots_by_period[period_code].period_end.replace(tzinfo=timezone.utc),
+                "umsatz_eur": snapshots_by_period[period_code].revenue_eur,
+                "calculated_at": snapshots_by_period[period_code].calculated_at.replace(tzinfo=timezone.utc),
+            }
+            for period_code in ordered_periods
+        ],
+    )
 
 
 @router.put("/customers/me", response_model=CustomerRead)

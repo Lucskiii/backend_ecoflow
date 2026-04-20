@@ -88,6 +88,23 @@ class Customer(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
 
 
+class CoreCustomerRevenuePeriod(Base):
+    __tablename__ = "core_customer_revenue_period"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    customer_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("core_customer.id", ondelete="CASCADE"), nullable=False)
+    period_code: Mapped[str] = mapped_column(String(16), nullable=False)
+    period_start: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    period_end: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    revenue_eur: Mapped[Decimal] = mapped_column(Numeric(18, 6), nullable=False, server_default="0")
+    calculated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("customer_id", "period_code", name="uq_customer_revenue_period"),
+        CheckConstraint("period_code IN ('all','30d','7d')", name="chk_customer_revenue_period_code"),
+    )
+
+
 class Site(Base):
     __tablename__ = "core_site"
 
