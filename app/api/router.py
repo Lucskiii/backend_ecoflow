@@ -30,6 +30,11 @@ from app.schemas.energy import (
     PortfolioSummaryResponse,
     PortfolioTimeseriesResponse,
 )
+from app.schemas.bi_prototype import (
+    BiEnergyTrendResponse,
+    BiPriceTrendResponse,
+    BiPrototypeSyncResponse,
+)
 from app.schemas.market import (
     LiveMarketPriceResponse,
     MarketPriceBackfillResponse,
@@ -48,6 +53,7 @@ from app.services.geocoding_service import GeocodingService
 from app.services.market_price_backfill_service import MarketPriceBackfillService
 from app.services.market_price_service import MarketPriceService
 from app.services.portfolio_service import PortfolioService
+from app.services.bi_prototype_service import BiPrototypeService
 from app.api.analysis_cities import router as analysis_cities_router
 from app.api.weather_price_analysis import router as weather_price_analysis_router
 from app.api.weather_price_statistics import router as weather_price_statistics_router
@@ -385,6 +391,60 @@ def get_portfolio_export_timeseries(
         **service.export_timeseries(from_ts=from_ts, to_ts=to_ts)
     )
 
+
+
+
+@router.post("/bi/prototype/sync", response_model=BiPrototypeSyncResponse)
+def sync_bi_prototype(
+    from_ts: datetime = Query(alias="from"),
+    to_ts: datetime = Query(alias="to"),
+    db: Session = Depends(get_db),
+) -> BiPrototypeSyncResponse:
+    from_ts = _ensure_aware_utc(from_ts, "from")
+    to_ts = _ensure_aware_utc(to_ts, "to")
+    if from_ts >= to_ts:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="from must be before to")
+
+    payload = BiPrototypeService(db).sync_from_core(from_ts=from_ts, to_ts=to_ts)
+    return BiPrototypeSyncResponse(**payload)
+
+
+@router.get("/bi/prototype/energy-trend", response_model=BiEnergyTrendResponse)
+def get_bi_energy_trend(
+    from_ts: datetime = Query(alias="from"),
+    to_ts: datetime = Query(alias="to"),
+    site_key: int | None = None,
+    db: Session = Depends(get_db),
+) -> BiEnergyTrendResponse:
+    from_ts = _ensure_aware_utc(from_ts, "from")
+    to_ts = _ensure_aware_utc(to_ts, "to")
+    if from_ts >= to_ts:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="from must be before to")
+
+    payload = BiPrototypeService(db).energy_trend(from_ts=from_ts, to_ts=to_ts, site_key=site_key)
+    return BiEnergyTrendResponse(**payload)
+
+
+@router.get("/bi/prototype/price-trend", response_model=BiPriceTrendResponse)
+def get_bi_price_trend(
+    from_ts: datetime = Query(alias="from"),
+    to_ts: datetime = Query(alias="to"),
+    market_product_key: int | None = None,
+    bidding_zone_id: int | None = None,
+    db: Session = Depends(get_db),
+) -> BiPriceTrendResponse:
+    from_ts = _ensure_aware_utc(from_ts, "from")
+    to_ts = _ensure_aware_utc(to_ts, "to")
+    if from_ts >= to_ts:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="from must be before to")
+
+    payload = BiPrototypeService(db).price_trend(
+        from_ts=from_ts,
+        to_ts=to_ts,
+        market_product_key=market_product_key,
+        bidding_zone_id=bidding_zone_id,
+    )
+    return BiPriceTrendResponse(**payload)
 
 @router.post("/customers/me/energy/simulate", response_model=EnergySimulationResponse)
 def simulate_my_energy_data(
