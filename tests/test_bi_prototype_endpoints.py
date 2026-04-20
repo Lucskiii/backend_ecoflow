@@ -108,6 +108,7 @@ def test_bi_prototype_sync_and_trends() -> None:
     sync_response = client.post("/api/bi/prototype/sync", params={"from": from_iso, "to": to_iso})
     assert sync_response.status_code == 200
     sync_payload = sync_response.json()
+    assert sync_payload["inserted_or_updated_dim_customer"] >= 1
     assert sync_payload["inserted_or_updated_fact_energy_interval"] >= 2
     assert sync_payload["inserted_or_updated_fact_market_price"] >= 2
 

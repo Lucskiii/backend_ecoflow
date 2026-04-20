@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.models.tables import (
     Asset,
     BiDimAsset,
+    BiDimCustomer,
     BiDimMarketProduct,
     BiDimSite,
     BiDimTime,
@@ -19,6 +20,7 @@ from app.models.tables import (
     CoreMeter,
     CoreTsMarketPrice,
     CoreTsMeterReading,
+    Customer,
     Site,
 )
 
@@ -42,6 +44,7 @@ class BiPrototypeService:
         to_ts = self._ensure_utc(to_ts)
 
         dim_time_count = 0
+        dim_customer_count = 0
         dim_site_count = 0
         dim_market_product_count = 0
         fact_energy_count = 0
@@ -70,6 +73,17 @@ class BiPrototypeService:
                 )
             )
             dim_time_count += 1
+
+
+        for customer_id, customer_name in self.db.execute(select(Customer.id, Customer.name)):
+            self.db.merge(
+                BiDimCustomer(
+                    customer_key=customer_id,
+                    customer_id=customer_id,
+                    customer_name=customer_name,
+                )
+            )
+            dim_customer_count += 1
 
         for site_id, customer_id, name in self.db.execute(select(Site.id, Site.customer_id, Site.name)):
             self.db.merge(
@@ -168,6 +182,7 @@ class BiPrototypeService:
             "from": from_ts,
             "to": to_ts,
             "inserted_or_updated_dim_time": dim_time_count,
+            "inserted_or_updated_dim_customer": dim_customer_count,
             "inserted_or_updated_dim_site": dim_site_count,
             "inserted_or_updated_dim_market_product": dim_market_product_count,
             "inserted_or_updated_fact_energy_interval": fact_energy_count,
