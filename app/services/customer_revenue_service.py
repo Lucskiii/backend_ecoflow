@@ -5,6 +5,9 @@ from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import func, select
+from sqlalchemy.dialects.mysql import insert as mysql_insert
+from sqlalchemy.dialects.postgresql import insert as postgresql_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from app.models.tables import (
@@ -132,45 +135,98 @@ class CustomerRevenueService:
 
     def get_or_create_period_snapshots(self, customer_id: int) -> list[CoreCustomerRevenuePeriod]:
         now = datetime.now(timezone.utc)
+        now_naive = now.replace(tzinfo=None)
         period_ranges = {
             "all": datetime(1970, 1, 1, tzinfo=timezone.utc),
             "30d": now - timedelta(days=30),
             "7d": now - timedelta(days=7),
         }
-        snapshots: list[CoreCustomerRevenuePeriod] = []
-        next_sqlite_id: int | None = None
-        if self.db.get_bind().dialect.name == "sqlite":
-            next_sqlite_id = int(
-                self.db.scalar(select(func.coalesce(func.max(CoreCustomerRevenuePeriod.id), 0) + 1)) or 1
-            )
         for period_code, from_ts in period_ranges.items():
             revenue = self.calculate_for_customer_in_range(customer_id, from_ts=from_ts, to_ts=now)
-            snapshot = self.db.scalar(
+            self._upsert_period_snapshot(
+                customer_id=customer_id,
+                period_code=period_code,
+                period_start=from_ts.replace(tzinfo=None),
+                period_end=now_naive,
+                revenue_eur=revenue,
+                calculated_at=now_naive,
+            )
+
+        snapshots = list(
+            self.db.scalars(
                 select(CoreCustomerRevenuePeriod).where(
                     CoreCustomerRevenuePeriod.customer_id == customer_id,
-                    CoreCustomerRevenuePeriod.period_code == period_code,
+                    CoreCustomerRevenuePeriod.period_code.in_(tuple(period_ranges.keys())),
                 )
             )
-            if snapshot is None:
-                snapshot_id = next_sqlite_id
-                if next_sqlite_id is not None:
-                    next_sqlite_id += 1
-                snapshot = CoreCustomerRevenuePeriod(
-                    id=snapshot_id,
-                    customer_id=customer_id,
-                    period_code=period_code,
-                    period_start=from_ts.replace(tzinfo=None),
-                    period_end=now.replace(tzinfo=None),
-                    revenue_eur=revenue,
-                    calculated_at=now.replace(tzinfo=None),
-                )
-                self.db.add(snapshot)
-            else:
-                snapshot.period_start = from_ts.replace(tzinfo=None)
-                snapshot.period_end = now.replace(tzinfo=None)
-                snapshot.revenue_eur = revenue
-                snapshot.calculated_at = now.replace(tzinfo=None)
-            snapshots.append(snapshot)
+        )
+        snapshots_by_period = {snapshot.period_code: snapshot for snapshot in snapshots}
+        return [snapshots_by_period[period_code] for period_code in period_ranges]
 
-        self.db.flush()
-        return snapshots
+    def _upsert_period_snapshot(
+        self,
+        customer_id: int,
+        period_code: str,
+        period_start: datetime,
+        period_end: datetime,
+        revenue_eur: Decimal,
+        calculated_at: datetime,
+    ) -> None:
+        insert_values = {
+            "customer_id": customer_id,
+            "period_code": period_code,
+            "period_start": period_start,
+            "period_end": period_end,
+            "revenue_eur": revenue_eur,
+            "calculated_at": calculated_at,
+        }
+        update_values = {
+            "period_start": period_start,
+            "period_end": period_end,
+            "revenue_eur": revenue_eur,
+            "calculated_at": calculated_at,
+        }
+        dialect_name = self.db.get_bind().dialect.name
+
+        if dialect_name == "postgresql":
+            stmt = postgresql_insert(CoreCustomerRevenuePeriod).values(**insert_values)
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["customer_id", "period_code"],
+                set_=update_values,
+            )
+            self.db.execute(stmt)
+            return
+
+        if dialect_name == "mysql":
+            stmt = mysql_insert(CoreCustomerRevenuePeriod).values(**insert_values)
+            stmt = stmt.on_duplicate_key_update(**update_values)
+            self.db.execute(stmt)
+            return
+
+        if dialect_name == "sqlite":
+            next_row_id = int(
+                self.db.scalar(select(func.coalesce(func.max(CoreCustomerRevenuePeriod.id), 0) + 1)) or 1
+            )
+            stmt = sqlite_insert(CoreCustomerRevenuePeriod).values(id=next_row_id, **insert_values)
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["customer_id", "period_code"],
+                set_=update_values,
+            )
+            self.db.execute(stmt)
+            return
+
+        existing = self.db.scalar(
+            select(CoreCustomerRevenuePeriod).where(
+                CoreCustomerRevenuePeriod.customer_id == customer_id,
+                CoreCustomerRevenuePeriod.period_code == period_code,
+            )
+        )
+        if existing is None:
+            self.db.add(CoreCustomerRevenuePeriod(**insert_values))
+            self.db.flush()
+            return
+
+        existing.period_start = period_start
+        existing.period_end = period_end
+        existing.revenue_eur = revenue_eur
+        existing.calculated_at = calculated_at

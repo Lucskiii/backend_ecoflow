@@ -253,6 +253,9 @@ def test_customer_revenue_periods_endpoint_persists_snapshots() -> None:
     assert by_period["30d"] == Decimal("2.000000")
     assert by_period["all"] == Decimal("3.000000")
 
+    repeat_response = client.get("/api/customers/me/revenue/periods", headers={"Authorization": f"Bearer {token}"})
+    assert repeat_response.status_code == 200
+
     db = testing_session_local()
     try:
         rows = list(
