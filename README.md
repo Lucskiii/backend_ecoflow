@@ -1,11 +1,11 @@
 # EcoFlow Backend Foundation
 
-Clean backend starter for an energy analytics / virtual power plant platform with a full MySQL 8 schema managed by Alembic migrations.
+Clean backend starter for an energy analytics / virtual power plant platform with a MariaDB/MySQL-compatible schema managed by Alembic migrations.
 
 ## Stack
 
 - FastAPI (REST API)
-- MySQL + PyMySQL
+- MariaDB (or MySQL) + PyMySQL
 - SQLAlchemy 2.x ORM
 - Alembic migrations
 - Pydantic schemas
@@ -63,7 +63,7 @@ tests/
 
 - The database is managed via Alembic migrations only (no `Base.metadata.create_all()` in app startup).
 - Logical layers are represented as MySQL table prefixes: `raw_`, `core_`, and `bi_`.
-- Run `python -m alembic upgrade head` to create all tables, constraints, and indexes in MySQL 8.
+- Run `python -m alembic upgrade head` to create all tables, constraints, and indexes in MariaDB/MySQL.
 - After pulling new backend changes, run `python -m alembic upgrade head` before startup so new columns (e.g. customer address/geocoordinates) exist.
 - Configure your connection in `.env` using `DATABASE_URL` (example provided in `.env.example`).
 
@@ -175,3 +175,27 @@ Additional endpoints:
 - `GET /api/analysis/weather-price/{analysis_run_id}` returns persisted result rows from `bi_weather_price_analysis` for frontend display.
 - `GET /api/analysis/weather-price/{analysis_run_id}/status` returns run metadata and row counts.
 - `PATCH /api/analysis/weather-price/{analysis_run_id}/name` renames an existing analysis run for frontend labeling.
+
+
+## Raspberry Pi + MariaDB setup
+
+1. Install system packages (Debian/Raspberry Pi OS):
+   ```bash
+   sudo apt update
+   sudo apt install -y python3 python3-venv python3-pip mariadb-server
+   ```
+2. Create database and user in MariaDB:
+   ```bash
+   sudo mariadb -e "CREATE DATABASE IF NOT EXISTS energy_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+   sudo mariadb -e "CREATE USER IF NOT EXISTS 'ecoflow'@'localhost' IDENTIFIED BY 'change-me';"
+   sudo mariadb -e "GRANT ALL PRIVILEGES ON energy_db.* TO 'ecoflow'@'localhost'; FLUSH PRIVILEGES;"
+   ```
+3. Configure `.env` (`mariadb://` is accepted and normalized automatically):
+   ```env
+   DATABASE_URL=mariadb://ecoflow:change-me@localhost:3306/energy_db
+   ```
+4. Run migrations and start the API:
+   ```bash
+   python -m alembic upgrade head
+   python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+   ```

@@ -13,6 +13,7 @@ from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
+from app.db_dialect import is_mysql_family
 from app.models.tables import CoreMeter, CoreQualityFlag, CoreTsMeterReading, Site
 
 METER_TYPES = ("load", "grid_import", "grid_export", "pv_generation")
@@ -178,7 +179,7 @@ class EnergyService:
             stmt = postgresql_insert(CoreTsMeterReading).values(readings).on_conflict_do_nothing(
                 index_elements=[CoreTsMeterReading.meter_id, CoreTsMeterReading.ts]
             )
-        elif dialect_name.startswith("mysql"):
+        elif is_mysql_family(dialect_name):
             stmt = mysql_insert(CoreTsMeterReading).values(readings).prefix_with("IGNORE")
         else:
             stmt = sqlite_insert(CoreTsMeterReading).values(readings).on_conflict_do_nothing(

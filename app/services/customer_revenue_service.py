@@ -10,6 +10,7 @@ from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
+from app.db_dialect import is_mysql_family
 from app.models.tables import (
     CoreBiddingZone,
     CoreCustomerRevenuePeriod,
@@ -197,7 +198,7 @@ class CustomerRevenueService:
             self.db.execute(stmt)
             return
 
-        if dialect_name == "mysql":
+        if is_mysql_family(dialect_name):
             stmt = mysql_insert(CoreCustomerRevenuePeriod).values(**insert_values)
             stmt = stmt.on_duplicate_key_update(**update_values)
             self.db.execute(stmt)

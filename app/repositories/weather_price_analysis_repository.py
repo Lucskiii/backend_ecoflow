@@ -6,6 +6,7 @@ from sqlalchemy import Select, func, select
 from sqlalchemy.dialects.mysql import insert as mysql_insert
 from sqlalchemy.orm import Session
 
+from app.db_dialect import is_mysql_family
 from app.models.tables import (
     BiWeatherPriceAnalysis,
     CoreWeightedWeatherAggregate,
@@ -86,7 +87,7 @@ class WeatherPriceAnalysisRepository:
             return 0
 
         table = BiWeatherPriceAnalysis.__table__
-        if self.db.get_bind().dialect.name == "mysql":
+        if is_mysql_family(self.db.get_bind().dialect.name):
             stmt = mysql_insert(table).values(rows)
             result = self.db.execute(
                 stmt.on_duplicate_key_update(
