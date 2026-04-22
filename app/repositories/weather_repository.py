@@ -10,6 +10,7 @@ from sqlalchemy import MetaData, Table, and_, func, insert, select
 from sqlalchemy.dialects.mysql import insert as mysql_insert
 from sqlalchemy.orm import Session
 
+from app.db_dialect import is_mysql_family
 from app.repositories.raw_ingestion_repository import RawIngestionRepository
 
 @dataclass(slots=True)
@@ -183,7 +184,7 @@ class WeatherRepository:
         if not rows:
             return 0
         dialect_name = self.db.get_bind().dialect.name
-        if dialect_name == "mysql":
+        if is_mysql_family(dialect_name):
             stmt = mysql_insert(self.weather_observation_table).values(rows)
             result = self.db.execute(
                 stmt.on_duplicate_key_update(

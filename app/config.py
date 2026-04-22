@@ -1,8 +1,10 @@
 from functools import lru_cache
 
 from dotenv import load_dotenv
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from app.db_dialect import normalize_database_url
 
 load_dotenv()
 
@@ -78,6 +80,12 @@ class Settings(BaseSettings):
     weather_store_raw_payload: bool = Field(
         default=True, alias="WEATHER_STORE_RAW_PAYLOAD"
     )
+
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def _normalize_database_url(cls, value: str) -> str:
+        return normalize_database_url(value)
 
     model_config = SettingsConfigDict(
         env_file=".env",

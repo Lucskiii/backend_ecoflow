@@ -8,6 +8,7 @@ from sqlalchemy import Select, func, select
 from sqlalchemy.dialects.mysql import insert as mysql_insert
 from sqlalchemy.orm import Session
 
+from app.db_dialect import is_mysql_family
 from app.models.tables import CoreMarketProduct, CoreTsMarketPrice
 
 
@@ -96,7 +97,7 @@ class MarketPriceRepository:
         ]
 
         dialect_name = self.db.get_bind().dialect.name
-        if dialect_name == "mysql":
+        if is_mysql_family(dialect_name):
             stmt = mysql_insert(table).values(payload).prefix_with("IGNORE")
             result = self.db.execute(stmt)
             return int(result.rowcount or 0)

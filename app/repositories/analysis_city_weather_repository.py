@@ -7,6 +7,7 @@ from sqlalchemy import Select, and_, select
 from sqlalchemy.dialects.mysql import insert as mysql_insert
 from sqlalchemy.orm import Session
 
+from app.db_dialect import is_mysql_family
 from app.models.tables import CoreAnalysisCityWeatherObservation
 
 
@@ -50,7 +51,7 @@ class AnalysisCityWeatherRepository:
         table = CoreAnalysisCityWeatherObservation.__table__
         dialect_name = self.db.get_bind().dialect.name
 
-        if dialect_name == "mysql":
+        if is_mysql_family(dialect_name):
             stmt = mysql_insert(table).values(rows)
             result = self.db.execute(
                 stmt.on_duplicate_key_update(
