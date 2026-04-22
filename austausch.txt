@@ -1,55 +1,32 @@
 (.venv) pi@raspberrypi:~/backend_ecoflow $ python -m alembic upgrade head
+INFO  [alembic.runtime.migration] Context impl MySQLImpl.
+INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_initial_models, initial mysql schema foundation
 Traceback (most recent call last):
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 143, in __init__
-    self._dbapi_connection = engine.raw_connection()
-                             ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 3317, in raw_connection
-    return self.pool.connect()
-           ^^^^^^^^^^^^^^^^^^^
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/pool/base.py", line 448, in connect
-    return _ConnectionFairy._checkout(self)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/pool/base.py", line 1272, in _checkout
-    fairy = _ConnectionRecord.checkout(pool)
-            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/pool/base.py", line 712, in checkout
-    rec = pool._do_get()
-          ^^^^^^^^^^^^^^
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/pool/impl.py", line 306, in _do_get
-    return self._create_connection()
-           ^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/pool/base.py", line 389, in _create_connection
-    return _ConnectionRecord(self)
-           ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/pool/base.py", line 674, in __init__
-    self.__connect()
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/pool/base.py", line 900, in __connect
-    with util.safe_reraise():
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/util/langhelpers.py", line 121, in __exit__
-    raise exc_value.with_traceback(exc_tb)
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/pool/base.py", line 896, in __connect
-    self.dbapi_connection = connection = pool._invoke_creator(self)
-                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/engine/create.py", line 667, in connect
-    return dialect.connect(*cargs_tup, **cparams)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 630, in connect
-    return self.loaded_dbapi.connect(*cargs, **cparams)  # type: ignore[no-any-return]  # NOQA: E501
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/pymysql/connections.py", line 365, in __init__
-    self.connect()
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/pymysql/connections.py", line 681, in connect
-    self._request_authentication()
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/pymysql/connections.py", line 958, in _request_authentication
-    auth_packet = self._read_packet()
-                  ^^^^^^^^^^^^^^^^^^^
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/pymysql/cursors.py", line 153, in execute
+    result = self._query(query)
+             ^^^^^^^^^^^^^^^^^^
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/pymysql/cursors.py", line 322, in _query
+    conn.query(q)
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/pymysql/connections.py", line 575, in query
+    self._affected_rows = self._read_query_result(unbuffered=unbuffered)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/pymysql/connections.py", line 826, in _read_query_result
+    result.read()
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/pymysql/connections.py", line 1203, in read
+    first_packet = self.connection._read_packet()
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/pymysql/connections.py", line 782, in _read_packet
     packet.raise_for_error()
   File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/pymysql/protocol.py", line 219, in raise_for_error
     err.raise_mysql_exception(self._data)
   File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/pymysql/err.py", line 150, in raise_mysql_exception
     raise errorclass(errno, errval)
-pymysql.err.OperationalError: (1045, "Access denied for user 'ecoflow'@'localhost' (using password: YES)")
+pymysql.err.ProgrammingError: (1064, "You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'NOT NULL, \n\tPRIMARY KEY (id), \n\tCONSTRAINT uq_core_market_product_dedup UNIQU...' at line 7")
 
 The above exception was the direct cause of the following exception:
 
@@ -78,64 +55,87 @@ Traceback (most recent call last):
   File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
   File "/home/pi/backend_ecoflow/migrations/env.py", line 50, in <module>
     run_migrations_online()
-  File "/home/pi/backend_ecoflow/migrations/env.py", line 40, in run_migrations_online
-    with connectable.connect() as connection:
-         ^^^^^^^^^^^^^^^^^^^^^
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 3293, in connect
-    return self._connection_cls(self)
+  File "/home/pi/backend_ecoflow/migrations/env.py", line 44, in run_migrations_online
+    context.run_migrations()
+  File "<string>", line 8, in run_migrations
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/alembic/runtime/environment.py", line 969, in run_migrations
+    self.get_context().run_migrations(**kw)
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/alembic/runtime/migration.py", line 626, in run_migrations
+    step.migration_fn(**kw)
+  File "/home/pi/backend_ecoflow/migrations/versions/0001_initial_models.py", line 22, in upgrade
+    Base.metadata.create_all(bind=bind)
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/sql/schema.py", line 5931, in create_all
+    bind._run_ddl_visitor(
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 2467, in _run_ddl_visitor
+    ).traverse_single(element)
+      ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/sql/visitors.py", line 661, in traverse_single
+    return meth(obj, **kw)
+           ^^^^^^^^^^^^^^^
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/sql/ddl.py", line 984, in visit_metadata
+    self.traverse_single(
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/sql/visitors.py", line 661, in traverse_single
+    return meth(obj, **kw)
+           ^^^^^^^^^^^^^^^
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/sql/ddl.py", line 1022, in visit_table
+    )._invoke_with(self.connection)
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/sql/ddl.py", line 321, in _invoke_with
+    return bind.execute(self)
+           ^^^^^^^^^^^^^^^^^^
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1419, in execute
+    return meth(
+           ^^^^^
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/sql/ddl.py", line 187, in _execute_on_connection
+    return connection._execute_ddl(
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1530, in _execute_ddl
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1846, in _execute_context
+    return self._exec_single_context(
            ^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 145, in __init__
-    Connection._handle_dbapi_exception_noconnection(
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 2448, in _handle_dbapi_exception_noconnection
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1986, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 2363, in _handle_dbapi_exception
     raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 143, in __init__
-    self._dbapi_connection = engine.raw_connection()
-                             ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 3317, in raw_connection
-    return self.pool.connect()
-           ^^^^^^^^^^^^^^^^^^^
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/pool/base.py", line 448, in connect
-    return _ConnectionFairy._checkout(self)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/pool/base.py", line 1272, in _checkout
-    fairy = _ConnectionRecord.checkout(pool)
-            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/pool/base.py", line 712, in checkout
-    rec = pool._do_get()
-          ^^^^^^^^^^^^^^
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/pool/impl.py", line 306, in _do_get
-    return self._create_connection()
-           ^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/pool/base.py", line 389, in _create_connection
-    return _ConnectionRecord(self)
-           ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/pool/base.py", line 674, in __init__
-    self.__connect()
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/pool/base.py", line 900, in __connect
-    with util.safe_reraise():
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/util/langhelpers.py", line 121, in __exit__
-    raise exc_value.with_traceback(exc_tb)
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/pool/base.py", line 896, in __connect
-    self.dbapi_connection = connection = pool._invoke_creator(self)
-                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/engine/create.py", line 667, in connect
-    return dialect.connect(*cargs_tup, **cparams)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 630, in connect
-    return self.loaded_dbapi.connect(*cargs, **cparams)  # type: ignore[no-any-return]  # NOQA: E501
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/pymysql/connections.py", line 365, in __init__
-    self.connect()
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/pymysql/connections.py", line 681, in connect
-    self._request_authentication()
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/pymysql/connections.py", line 958, in _request_authentication
-    auth_packet = self._read_packet()
-                  ^^^^^^^^^^^^^^^^^^^
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/pymysql/cursors.py", line 153, in execute
+    result = self._query(query)
+             ^^^^^^^^^^^^^^^^^^
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/pymysql/cursors.py", line 322, in _query
+    conn.query(q)
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/pymysql/connections.py", line 575, in query
+    self._affected_rows = self._read_query_result(unbuffered=unbuffered)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/pymysql/connections.py", line 826, in _read_query_result
+    result.read()
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/pymysql/connections.py", line 1203, in read
+    first_packet = self.connection._read_packet()
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/pymysql/connections.py", line 782, in _read_packet
     packet.raise_for_error()
   File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/pymysql/protocol.py", line 219, in raise_for_error
     err.raise_mysql_exception(self._data)
   File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/pymysql/err.py", line 150, in raise_mysql_exception
     raise errorclass(errno, errval)
-sqlalchemy.exc.OperationalError: (pymysql.err.OperationalError) (1045, "Access denied for user 'ecoflow'@'localhost' (using password: YES)")
-(Background on this error at: https://sqlalche.me/e/20/e3q8)
+sqlalchemy.exc.ProgrammingError: (pymysql.err.ProgrammingError) (1064, "You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'NOT NULL, \n\tPRIMARY KEY (id), \n\tCONSTRAINT uq_core_market_product_dedup UNIQU...' at line 7")
+[SQL: 
+CREATE TABLE core_market_product (
+	id BIGINT NOT NULL AUTO_INCREMENT, 
+	market_id BIGINT NOT NULL, 
+	product_code VARCHAR(64), 
+	granularity_minutes INTEGER NOT NULL, 
+	direction VARCHAR(16), 
+	q_product_code VARCHAR(64) GENERATED ALWAYS AS (ifnull(product_code,'__NULL__')) NOT NULL, 
+	PRIMARY KEY (id), 
+	CONSTRAINT uq_core_market_product_dedup UNIQUE (market_id, q_product_code), 
+	CONSTRAINT ck_market_product_granularity_positive CHECK (granularity_minutes > 0), 
+	FOREIGN KEY(market_id) REFERENCES core_market (id) ON DELETE CASCADE
+)
+
+]
+(Background on this error at: https://sqlalche.me/e/20/f405)
