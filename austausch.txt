@@ -1,0 +1,65 @@
+(.venv) pi@raspberrypi:~/backend_ecoflow $ python3 -m alembic upgrade head
+Traceback (most recent call last):
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.9/site-packages/sqlalchemy/util/typing.py", line 274, in eval_expression
+    annotation = eval(expression, cls_namespace, locals_)
+  File "<string>", line 1, in <module>
+TypeError: unsupported operand type(s) for |: 'type' and 'NoneType'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.9/site-packages/sqlalchemy/orm/decl_base.py", line 1567, in _extract_mappable_attributes
+    value.declarative_scan(
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.9/site-packages/sqlalchemy/orm/properties.py", line 722, in declarative_scan
+    self._init_column_for_annotation(
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.9/site-packages/sqlalchemy/orm/properties.py", line 763, in _init_column_for_annotation
+    argument = de_stringify_annotation(
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.9/site-packages/sqlalchemy/util/typing.py", line 158, in de_stringify_annotation
+    annotation = eval_expression(
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.9/site-packages/sqlalchemy/util/typing.py", line 278, in eval_expression
+    raise NameError(
+NameError: Could not de-stringify annotation 'str | None'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/usr/lib/python3.9/runpy.py", line 197, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/usr/lib/python3.9/runpy.py", line 87, in _run_code
+    exec(code, run_globals)
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.9/site-packages/alembic/__main__.py", line 4, in <module>
+    main(prog="alembic")
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.9/site-packages/alembic/config.py", line 1022, in main
+    CommandLine(prog=prog).main(argv=argv)
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.9/site-packages/alembic/config.py", line 1012, in main
+    self.run_cmd(cfg, options)
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.9/site-packages/alembic/config.py", line 946, in run_cmd
+    fn(
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.9/site-packages/alembic/command.py", line 483, in upgrade
+    script.run_env()
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.9/site-packages/alembic/script/base.py", line 549, in run_env
+    util.load_python_file(self.dir, "env.py")
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.9/site-packages/alembic/util/pyfiles.py", line 116, in load_python_file
+    module = load_module_py(module_id, path)
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.9/site-packages/alembic/util/pyfiles.py", line 136, in load_module_py
+    spec.loader.exec_module(module)  # type: ignore
+  File "<frozen importlib._bootstrap_external>", line 790, in exec_module
+  File "<frozen importlib._bootstrap>", line 228, in _call_with_frames_removed
+  File "migrations/env.py", line 8, in <module>
+    import app.models  # noqa: F401
+  File "./app/models/__init__.py", line 1, in <module>
+    from app.models.tables import (
+  File "./app/models/tables.py", line 30, in <module>
+    class RawIngestionBatch(Base):
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.9/site-packages/sqlalchemy/orm/decl_api.py", line 846, in __init_subclass__
+    _as_declarative(cls._sa_registry, cls, cls.__dict__)
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.9/site-packages/sqlalchemy/orm/decl_base.py", line 245, in _as_declarative
+    return _MapperConfig.setup_mapping(registry, cls, dict_, None, {})
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.9/site-packages/sqlalchemy/orm/decl_base.py", line 326, in setup_mapping
+    return _ClassScanMapperConfig(
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.9/site-packages/sqlalchemy/orm/decl_base.py", line 573, in __init__
+    self._extract_mappable_attributes()
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.9/site-packages/sqlalchemy/orm/decl_base.py", line 1579, in _extract_mappable_attributes
+    raise orm_exc.MappedAnnotationError(
+sqlalchemy.orm.exc.MappedAnnotationError: Could not resolve all types within mapped annotation: "Mapped[str | None]".  Ensure all types are written correctly and are imported within the module in use.
+(.venv) pi@raspberrypi:~/backend_ecoflow $ ^C
