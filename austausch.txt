@@ -2,6 +2,7 @@
 INFO  [alembic.runtime.migration] Context impl MySQLImpl.
 INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
 INFO  [alembic.runtime.migration] Running upgrade  -> 0001_initial_models, initial mysql schema foundation
+INFO  [alembic.runtime.migration] Running upgrade 0001_initial_models -> 0002_add_customer_password_hash, add password hash to core customer
 Traceback (most recent call last):
   File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
     self.dialect.do_execute(
@@ -26,7 +27,7 @@ Traceback (most recent call last):
     err.raise_mysql_exception(self._data)
   File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/pymysql/err.py", line 150, in raise_mysql_exception
     raise errorclass(errno, errval)
-pymysql.err.ProgrammingError: (1064, "You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'NOT NULL, \n\tPRIMARY KEY (id), \n\tCONSTRAINT uq_core_market_product_dedup UNIQU...' at line 7")
+pymysql.err.OperationalError: (1060, "Duplicate column name 'password_hash'")
 
 The above exception was the direct cause of the following exception:
 
@@ -62,27 +63,23 @@ Traceback (most recent call last):
     self.get_context().run_migrations(**kw)
   File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/alembic/runtime/migration.py", line 626, in run_migrations
     step.migration_fn(**kw)
-  File "/home/pi/backend_ecoflow/migrations/versions/0001_initial_models.py", line 22, in upgrade
-    Base.metadata.create_all(bind=bind)
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/sql/schema.py", line 5931, in create_all
-    bind._run_ddl_visitor(
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 2467, in _run_ddl_visitor
-    ).traverse_single(element)
-      ^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/sql/visitors.py", line 661, in traverse_single
-    return meth(obj, **kw)
-           ^^^^^^^^^^^^^^^
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/sql/ddl.py", line 984, in visit_metadata
-    self.traverse_single(
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/sql/visitors.py", line 661, in traverse_single
-    return meth(obj, **kw)
-           ^^^^^^^^^^^^^^^
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/sql/ddl.py", line 1022, in visit_table
-    )._invoke_with(self.connection)
-      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/sql/ddl.py", line 321, in _invoke_with
-    return bind.execute(self)
-           ^^^^^^^^^^^^^^^^^^
+  File "/home/pi/backend_ecoflow/migrations/versions/0002_add_customer_password_hash.py", line 19, in upgrade
+    op.add_column("core_customer", sa.Column("password_hash", sa.String(length=255), nullable=True))
+  File "<string>", line 8, in add_column
+  File "<string>", line 3, in add_column
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/alembic/operations/ops.py", line 2258, in add_column
+    return operations.invoke(op)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/alembic/operations/base.py", line 452, in invoke
+    return fn(self, operation)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/alembic/operations/toimpl.py", line 182, in add_column
+    operations.impl.add_column(
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/alembic/ddl/impl.py", line 392, in add_column
+    self._exec(
+  File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/alembic/ddl/impl.py", line 256, in _exec
+    return conn.execute(construct, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1419, in execute
     return meth(
            ^^^^^
@@ -122,20 +119,6 @@ Traceback (most recent call last):
     err.raise_mysql_exception(self._data)
   File "/home/pi/backend_ecoflow/.venv/lib/python3.11/site-packages/pymysql/err.py", line 150, in raise_mysql_exception
     raise errorclass(errno, errval)
-sqlalchemy.exc.ProgrammingError: (pymysql.err.ProgrammingError) (1064, "You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'NOT NULL, \n\tPRIMARY KEY (id), \n\tCONSTRAINT uq_core_market_product_dedup UNIQU...' at line 7")
-[SQL: 
-CREATE TABLE core_market_product (
-	id BIGINT NOT NULL AUTO_INCREMENT, 
-	market_id BIGINT NOT NULL, 
-	product_code VARCHAR(64), 
-	granularity_minutes INTEGER NOT NULL, 
-	direction VARCHAR(16), 
-	q_product_code VARCHAR(64) GENERATED ALWAYS AS (ifnull(product_code,'__NULL__')) NOT NULL, 
-	PRIMARY KEY (id), 
-	CONSTRAINT uq_core_market_product_dedup UNIQUE (market_id, q_product_code), 
-	CONSTRAINT ck_market_product_granularity_positive CHECK (granularity_minutes > 0), 
-	FOREIGN KEY(market_id) REFERENCES core_market (id) ON DELETE CASCADE
-)
-
-]
-(Background on this error at: https://sqlalche.me/e/20/f405)
+sqlalchemy.exc.OperationalError: (pymysql.err.OperationalError) (1060, "Duplicate column name 'password_hash'")
+[SQL: ALTER TABLE core_customer ADD COLUMN password_hash VARCHAR(255)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
