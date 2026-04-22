@@ -356,11 +356,11 @@ class CoreTsForecast(Base):
     )
     scenario: Mapped[str | None] = mapped_column(String(64))
     value: Mapped[Decimal] = mapped_column(Numeric(18, 6), nullable=False)
-    q_asset_id: Mapped[int] = mapped_column(BigInteger, Computed("ifnull(asset_id,0)"), nullable=False)
-    q_weather_location_id: Mapped[int] = mapped_column(
-        BigInteger, Computed("ifnull(weather_location_id,0)"), nullable=False
-    )
-    q_scenario: Mapped[str] = mapped_column(String(64), Computed("ifnull(scenario,'__NULL__')"), nullable=False)
+    # MariaDB may reject explicit NOT NULL on generated columns; nullability is
+    # still effectively controlled by the IFNULL expression.
+    q_asset_id: Mapped[int] = mapped_column(BigInteger, Computed("ifnull(asset_id,0)"))
+    q_weather_location_id: Mapped[int] = mapped_column(BigInteger, Computed("ifnull(weather_location_id,0)"))
+    q_scenario: Mapped[str] = mapped_column(String(64), Computed("ifnull(scenario,'__NULL__')"))
 
     __table_args__ = (
         UniqueConstraint(
@@ -392,7 +392,9 @@ class CoreMarketProduct(Base):
     product_code: Mapped[str | None] = mapped_column(String(64))
     granularity_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
     direction: Mapped[str | None] = mapped_column(String(16))
-    q_product_code: Mapped[str] = mapped_column(String(64), Computed("ifnull(product_code,'__NULL__')"), nullable=False)
+    # Keep dedup semantics via IFNULL while avoiding MariaDB-incompatible
+    # `GENERATED ... NOT NULL` DDL.
+    q_product_code: Mapped[str] = mapped_column(String(64), Computed("ifnull(product_code,'__NULL__')"))
 
     __table_args__ = (
         UniqueConstraint("market_id", "q_product_code", name="uq_core_market_product_dedup"),
