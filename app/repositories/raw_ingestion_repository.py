@@ -4,7 +4,7 @@ import hashlib
 import json
 from typing import Any
 
-from sqlalchemy import MetaData, Table, func, insert, select
+from sqlalchemy import JSON, MetaData, Table, func, insert, select
 from sqlalchemy.orm import Session
 
 
@@ -105,8 +105,10 @@ class RawIngestionRepository:
         values: dict[str, Any] = {"ingestion_batch_id": ingestion_batch_id}
         if str(payload_column.type).lower().find("blob") >= 0:
             values[payload_column.key] = raw_bytes
-        else:
+        elif isinstance(payload_column.type, JSON):
             values[payload_column.key] = payload
+        else:
+            values[payload_column.key] = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         if "payload_bytes" in self.payload_table.c:
             values["payload_bytes"] = raw_bytes
         if "entity_hint" in self.payload_table.c:
