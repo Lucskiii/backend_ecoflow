@@ -119,7 +119,8 @@ def upgrade() -> None:
         sa.Column("product_code", sa.String(length=64), nullable=True),
         sa.Column("granularity_minutes", sa.Integer(), nullable=False),
         sa.Column("direction", sa.String(length=16), nullable=True),
-        sa.Column("q_product_code", sa.String(length=64), sa.Computed("ifnull(product_code,'__NULL__')"), nullable=False),
+        # MariaDB rejects explicit NOT NULL on generated columns in this form.
+        sa.Column("q_product_code", sa.String(length=64), sa.Computed("ifnull(product_code,'__NULL__')")),
         sa.CheckConstraint("granularity_minutes > 0", name="ck_market_product_granularity_positive"),
         sa.ForeignKeyConstraint(["market_id"], ["core_market.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
@@ -342,9 +343,10 @@ def upgrade() -> None:
         sa.Column("weather_location_id", sa.BigInteger(), nullable=True),
         sa.Column("scenario", sa.String(length=64), nullable=True),
         sa.Column("value", sa.Numeric(precision=18, scale=6), nullable=False),
-        sa.Column("q_asset_id", sa.BigInteger(), sa.Computed("ifnull(asset_id,0)"), nullable=False),
-        sa.Column("q_weather_location_id", sa.BigInteger(), sa.Computed("ifnull(weather_location_id,0)"), nullable=False),
-        sa.Column("q_scenario", sa.String(length=64), sa.Computed("ifnull(scenario,'__NULL__')"), nullable=False),
+        # MariaDB rejects explicit NOT NULL on generated columns in this form.
+        sa.Column("q_asset_id", sa.BigInteger(), sa.Computed("ifnull(asset_id,0)")),
+        sa.Column("q_weather_location_id", sa.BigInteger(), sa.Computed("ifnull(weather_location_id,0)")),
+        sa.Column("q_scenario", sa.String(length=64), sa.Computed("ifnull(scenario,'__NULL__')")),
         sa.ForeignKeyConstraint(["asset_id"], ["core_asset.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["weather_location_id"], ["core_weather_location.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
