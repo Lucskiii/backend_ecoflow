@@ -1,4 +1,5 @@
 from functools import lru_cache
+from urllib.parse import urlsplit
 
 from dotenv import load_dotenv
 from pydantic import Field, field_validator
@@ -80,6 +81,28 @@ class Settings(BaseSettings):
     weather_store_raw_payload: bool = Field(
         default=True, alias="WEATHER_STORE_RAW_PAYLOAD"
     )
+    cors_allowed_origins: str = Field(
+        default="http://localhost:4200,http://127.0.0.1:4200",
+        alias="CORS_ALLOWED_ORIGINS",
+    )
+
+    def get_cors_allowed_origins(self) -> list[str]:
+        origins: list[str] = []
+        for raw_origin in self.cors_allowed_origins.split(","):
+            origin = raw_origin.strip().rstrip("/")
+            if not origin:
+                continue
+
+            parts = urlsplit(origin)
+            if parts.scheme and parts.netloc:
+                normalized = f"{parts.scheme}://{parts.netloc}".rstrip("/")
+            else:
+                normalized = origin
+
+            if normalized and normalized not in origins:
+                origins.append(normalized)
+
+        return origins
 
 
     @field_validator("database_url", mode="before")
