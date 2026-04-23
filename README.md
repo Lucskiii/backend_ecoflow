@@ -44,8 +44,65 @@ tests/
    ```
 4. Start API:
    ```bash
-   python -m uvicorn app.main:app --reload
+   python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
    ```
+
+## CORS configuration (Angular frontend + Raspberry Pi)
+
+- The backend reads allowed origins from `CORS_ALLOWED_ORIGINS` (comma-separated).
+- Default: `http://localhost:4200,http://127.0.0.1:4200`
+- Allowed CORS methods are: `GET, POST, PUT, PATCH, DELETE, OPTIONS`
+- Allowed CORS headers are: `Authorization, Content-Type`
+- Credentials are enabled (`Access-Control-Allow-Credentials: true`), so do not use wildcard origin (`*`).
+- Important: a CORS origin must not contain a path. If you configure
+  `https://frontend-ecoflow.vercel.app/login`, it is normalized internally to
+  `https://frontend-ecoflow.vercel.app`.
+
+Example `.env` for local + deployed frontend:
+
+```env
+CORS_ALLOWED_ORIGINS=http://localhost:4200,http://127.0.0.1:4200,https://frontend-ecoflow.vercel.app
+```
+
+### Angular frontend: backend URL for Raspberry Pi
+
+When your backend runs on a Raspberry Pi in your home network, set the API base URL in Angular to the Pi IP, for example:
+
+```ts
+export const environment = {
+  production: false,
+  apiBaseUrl: 'http://192.168.178.42:8000'
+};
+```
+
+Then make sure the frontend origin (the site where Angular is served from) is listed in `CORS_ALLOWED_ORIGINS`.
+
+### CORS verification with curl (including preflight)
+
+Preflight request (OPTIONS):
+
+```bash
+curl -i -X OPTIONS "http://<pi-ip>:8000/health" \
+  -H "Origin: http://localhost:4200" \
+  -H "Access-Control-Request-Method: GET" \
+  -H "Access-Control-Request-Headers: Authorization,Content-Type"
+```
+
+Expected in response headers:
+- `access-control-allow-origin: http://localhost:4200`
+- `access-control-allow-methods: GET, POST, PUT, PATCH, DELETE, OPTIONS`
+- `access-control-allow-headers` containing `Authorization` and `Content-Type`
+- `access-control-allow-credentials: true`
+
+Regular request:
+
+```bash
+curl -i "http://<pi-ip>:8000/health" -H "Origin: http://localhost:4200"
+```
+
+Expected in response headers:
+- `access-control-allow-origin: http://localhost:4200`
+- `access-control-allow-credentials: true`
 
 ## Endpoints
 
