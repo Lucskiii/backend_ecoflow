@@ -82,7 +82,7 @@ class Settings(BaseSettings):
         default=True, alias="WEATHER_STORE_RAW_PAYLOAD"
     )
     cors_allowed_origins: str = Field(
-        default="http://localhost:4200,http://127.0.0.1:4200",
+        default="http://localhost:4200,http://127.0.0.1:4200,https://frontend-ecoflow.vercel.app",
         alias="CORS_ALLOWED_ORIGINS",
     )
 
