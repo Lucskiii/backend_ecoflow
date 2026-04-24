@@ -104,6 +104,52 @@ Expected in response headers:
 - `access-control-allow-origin: http://localhost:4200`
 - `access-control-allow-credentials: true`
 
+## Troubleshooting ngrok + browser CORS error (`net::ERR_FAILED 200`)
+
+If browser requests to an ngrok URL fail with a CORS error and `net::ERR_FAILED 200 (OK)`, but `curl` to the same endpoint returns `401 Unauthorized` with valid CORS headers, the request is often being answered by ngrok's browser warning/interstitial page (HTML `200`) instead of FastAPI.
+
+Use an Angular `HttpInterceptor` so every API request includes both headers:
+
+- `Authorization: Bearer <token>`
+- `ngrok-skip-browser-warning: true`
+
+Minimal interceptor example:
+
+```ts
+import { HttpInterceptorFn } from '@angular/common/http';
+
+export const apiAuthInterceptor: HttpInterceptorFn = (req, next) => {
+  const token = localStorage.getItem('access_token');
+  const isApiCall = req.url.startsWith('https://<your-ngrok-subdomain>.ngrok-free.app');
+
+  if (!isApiCall) {
+    return next(req);
+  }
+
+  const headers: Record<string, string> = {
+    'ngrok-skip-browser-warning': 'true',
+  };
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  return next(req.clone({ setHeaders: headers }));
+};
+```
+
+And register it once in app config:
+
+```ts
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
+
+providers: [
+  provideHttpClient(withInterceptors([apiAuthInterceptor])),
+]
+```
+
+Backend note: this backend already allows custom request headers via CORS middleware (`allow_headers=["*"]`), so the missing ngrok/interceptor headers are usually the client-side failure path in this scenario.
+
 ## Endpoints
 
 - `GET /health` - service health check
