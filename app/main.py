@@ -72,10 +72,10 @@ def stop_weather_scheduler() -> None:
     weather_scheduler.stop()
 
 
-app = CORSMiddleware(
-    app=app,
+app.add_middleware(
+    CORSMiddleware,
     allow_origins=settings.get_cors_allowed_origins(),
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
     allow_headers=["*"],
 )
