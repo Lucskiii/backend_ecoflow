@@ -37,14 +37,6 @@ def auto_seed_demo_energy_data() -> None:
         db.close()
 
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.get_cors_allowed_origins(),
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
-)
-
 app.include_router(health_router)
 app.include_router(api_router)
 app.include_router(weather_router)
@@ -78,3 +70,12 @@ def start_weather_scheduler() -> None:
 @app.on_event("shutdown")
 def stop_weather_scheduler() -> None:
     weather_scheduler.stop()
+
+
+app = CORSMiddleware(
+    app=app,
+    allow_origins=settings.get_cors_allowed_origins(),
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+)
