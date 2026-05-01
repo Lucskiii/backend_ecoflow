@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class MarketPricePoint(BaseModel):
@@ -46,3 +46,15 @@ class LiveMarketPriceResponse(BaseModel):
     current: LiveMarketPricePoint | None = None
     next: LiveMarketPricePoint | None = None
     points: list[LiveMarketPricePoint]
+
+
+class BiddingZoneResponse(BaseModel):
+    id: int
+    code: str
+    name: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BiddingZoneListResponse(BaseModel):
+    items: list[BiddingZoneResponse]
