@@ -8,6 +8,7 @@ from app.schemas.weather_price_analysis import (
     WeatherPriceAnalysisRenameRequest,
     WeatherPriceAnalysisRequest,
     WeatherPriceAnalysisResponse,
+    WeatherPriceAnalysisRunListResponse,
     WeatherPriceAnalysisRunStatus,
 )
 from app.services.analysis_city_weather_service import WeatherUpstreamError
@@ -37,6 +38,16 @@ def create_weather_price_analysis(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except WeatherUpstreamError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+
+
+@router.get("/runs", response_model=WeatherPriceAnalysisRunListResponse)
+def list_weather_price_analysis_runs(
+    limit: int = 100,
+    db: Session = Depends(get_db),
+) -> WeatherPriceAnalysisRunListResponse:
+    safe_limit = max(1, min(limit, 500))
+    payload = WeatherPriceAnalysisService(db).list_runs(limit=safe_limit)
+    return WeatherPriceAnalysisRunListResponse(**payload)
 
 
 @router.get("/{analysis_run_id}", response_model=WeatherPriceAnalysisResponse)

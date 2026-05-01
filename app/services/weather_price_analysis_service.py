@@ -177,6 +177,9 @@ class WeatherPriceAnalysisService:
             raise AnalysisNotFoundError(f"Analysis run {analysis_run_id} not found")
         return payload
 
+    def list_runs(self, limit: int = 100) -> dict:
+        return {"items": self.repository.list_runs(limit=limit)}
+
     def _validate_request(self, payload: WeatherPriceAnalysisRequest) -> None:
         if payload.start_date > payload.end_date:
             raise AnalysisValidationError("start_date must be before or equal to end_date")

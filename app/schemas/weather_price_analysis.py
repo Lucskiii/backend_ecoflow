@@ -65,6 +65,20 @@ class WeatherPriceAnalysisRunStatus(BaseModel):
     rows_analysis: int
 
 
+class WeatherPriceAnalysisRunListItem(BaseModel):
+    analysis_run_id: int
+    run_name: str | None
+    status: str
+    start_date: date | None
+    end_date: date | None
+    requested_at: datetime
+    rows_analysis: int
+
+
+class WeatherPriceAnalysisRunListResponse(BaseModel):
+    items: list[WeatherPriceAnalysisRunListItem]
+
+
 class WeatherPriceAnalysisErrorResponse(BaseModel):
     detail: str
 

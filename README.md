@@ -275,6 +275,7 @@ The response includes processed/skipped/failed product counts, inserted row coun
 - Response includes descriptive stats, weather-vs-price correlations, correlation matrix, bucket analysis, scatter-ready points, lag correlations (`t` to `t+3h`), cautious interpretation hints, and optional outliers/trend lines.
 
 Additional endpoints:
+- `GET /api/analysis/weather-price/runs?limit=100` lists latest analysis runs (id, name, status, date range, requested time, row count) for frontend selection UIs.
 - `GET /api/analysis/weather-price/{analysis_run_id}` returns persisted result rows from `bi_weather_price_analysis` for frontend display.
 - `GET /api/analysis/weather-price/{analysis_run_id}/status` returns run metadata and row counts.
 - `PATCH /api/analysis/weather-price/{analysis_run_id}/name` renames an existing analysis run for frontend labeling.
