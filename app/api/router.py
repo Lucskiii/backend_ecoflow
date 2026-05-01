@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.database import get_db
 from app.repositories.customer_repository import CustomerRepository
-from app.models.tables import Site
+from app.models.tables import CoreBiddingZone, Site
 from app.schemas.customer import (
     AuthenticatedCustomer,
     CustomerCreate,
@@ -36,6 +36,7 @@ from app.schemas.bi_prototype import (
     BiPrototypeSyncResponse,
 )
 from app.schemas.market import (
+    BiddingZoneListResponse,
     LiveMarketPriceResponse,
     MarketPriceBackfillResponse,
     MarketPriceRefreshResponse,
@@ -462,6 +463,13 @@ def simulate_my_energy_data(
         **{"from": result.from_ts, "to": result.to_ts},
     )
 
+
+
+
+@router.get("/market/bidding-zones", response_model=BiddingZoneListResponse)
+def list_market_bidding_zones(db: Session = Depends(get_db)) -> BiddingZoneListResponse:
+    zones = list(db.scalars(select(CoreBiddingZone).order_by(CoreBiddingZone.name.asc())))
+    return BiddingZoneListResponse(items=zones)
 
 @router.get("/market/prices", response_model=MarketPriceTimeseriesResponse)
 def get_market_prices(
