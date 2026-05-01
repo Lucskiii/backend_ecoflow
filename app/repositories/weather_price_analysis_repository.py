@@ -146,3 +146,42 @@ class WeatherPriceAnalysisRepository:
             "rows_aggregate": int(rows_aggregate or 0),
             "rows_analysis": int(rows_analysis or 0),
         }
+
+    def list_runs(self, limit: int = 100) -> list[dict]:
+        rows = self.db.execute(
+            select(
+                CoreWeatherPriceAnalysisRun.id,
+                CoreWeatherPriceAnalysisRun.run_name,
+                CoreWeatherPriceAnalysisRun.status,
+                CoreWeatherPriceAnalysisRun.start_date,
+                CoreWeatherPriceAnalysisRun.end_date,
+                CoreWeatherPriceAnalysisRun.requested_at,
+                func.count(BiWeatherPriceAnalysis.id).label("rows_analysis"),
+            )
+            .outerjoin(
+                BiWeatherPriceAnalysis,
+                BiWeatherPriceAnalysis.analysis_run_id == CoreWeatherPriceAnalysisRun.id,
+            )
+            .group_by(
+                CoreWeatherPriceAnalysisRun.id,
+                CoreWeatherPriceAnalysisRun.run_name,
+                CoreWeatherPriceAnalysisRun.status,
+                CoreWeatherPriceAnalysisRun.start_date,
+                CoreWeatherPriceAnalysisRun.end_date,
+                CoreWeatherPriceAnalysisRun.requested_at,
+            )
+            .order_by(CoreWeatherPriceAnalysisRun.requested_at.desc())
+            .limit(limit)
+        ).all()
+        return [
+            {
+                "analysis_run_id": int(run_id),
+                "run_name": run_name,
+                "status": status,
+                "start_date": start_date,
+                "end_date": end_date,
+                "requested_at": requested_at,
+                "rows_analysis": int(rows_analysis or 0),
+            }
+            for run_id, run_name, status, start_date, end_date, requested_at, rows_analysis in rows
+        ]
